@@ -1,0 +1,92 @@
+<title>Moons of Ganthia</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Alegreya+Sans:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: full-bleed night sky canvas; a brass-edged date plaque top-left, a moon roster at right, an observatory control strip along the bottom. Single dark look by design (it is the night sky). */
+:root{
+  color-scheme: dark;
+  --sky:#05070d;
+  --ink:#ebe5d4;
+  --muted:#a29cb0;
+  --panel:rgba(9,10,19,.78);
+  --line:rgba(235,229,212,.14);
+  --brass:#d6b26a;
+  --brass-dim:rgba(214,178,106,.35);
+  --font-display:"IM Fell English SC", "Iowan Old Style", Georgia, serif;
+  --font-body:"Alegreya Sans", "Gill Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+html,body{height:100%}
+body{background:var(--sky);color:var(--ink);font-family:var(--font-body);font-size:15px;overflow:hidden;
+  padding-left:max(0px, env(safe-area-inset-left,0px));padding-right:max(0px, env(safe-area-inset-right,0px))}
+#app{position:relative;height:100%;width:100%;overflow:hidden}
+#sky{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#sky.drag{cursor:grabbing}
+.overlay{position:absolute;pointer-events:none;inset:0;
+  padding-left:max(16px, env(safe-area-inset-left,0px));padding-right:max(16px, env(safe-area-inset-right,0px));padding-block:14px}
+.overlay > *{pointer-events:auto}
+.plaque{position:absolute;top:14px;left:max(16px, env(safe-area-inset-left,0px));background:var(--panel);
+  border:1px solid var(--line);border-top:2px solid var(--brass-dim);padding:10px 14px 9px;border-radius:3px;backdrop-filter:blur(6px);max-width:min(78vw,380px)}
+.plaque .kicker{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.plaque h1{font-family:var(--font-display);font-weight:400;font-size:26px;line-height:1.1;margin:2px 0 3px;text-wrap:balance;color:var(--ink)}
+.plaque .sub{font-family:var(--font-mono);font-size:12px;color:var(--brass);font-variant-numeric:tabular-nums}
+.roster{position:absolute;top:14px;right:max(16px, env(safe-area-inset-right,0px));width:272px;background:var(--panel);border:1px solid var(--line);
+  border-radius:3px;backdrop-filter:blur(6px);max-height:calc(100% - 210px);display:flex;flex-direction:column}
+.roster header{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:9px 12px 7px;border-bottom:1px solid var(--line)}
+.roster header h2{font-family:var(--font-display);font-weight:400;font-size:17px;margin:0}
+.roster header span{font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+#moonList{list-style:none;margin:0;padding:4px 0;overflow:auto}
+#moonList li{min-width:0}
+#moonList button{all:unset;box-sizing:border-box;width:100%;display:grid;grid-template-columns:30px 1fr auto;gap:9px;align-items:center;padding:6px 12px;cursor:pointer}
+#moonList button:hover{background:rgba(235,229,212,.06)}
+#moonList button:focus-visible{outline:1px solid var(--brass);outline-offset:-1px}
+#moonList canvas{width:26px;height:26px}
+.mname{font-weight:700;font-size:14px;line-height:1.15;display:flex;gap:6px;align-items:center}
+.mname .tag{font-family:var(--font-mono);font-weight:500;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#14110a;background:var(--brass);padding:1px 5px;border-radius:2px}
+.mname .tag.ecl{background:#b5523b;color:#fff3ea}
+.mmeta{font-size:12px;color:var(--muted);line-height:1.2}
+.mnum{font-family:var(--font-mono);font-size:11px;text-align:right;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.35}
+.mnum .down{color:var(--muted)}
+.dock{position:absolute;left:max(16px, env(safe-area-inset-left,0px));right:max(16px, env(safe-area-inset-right,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));
+  background:var(--panel);border:1px solid var(--line);border-radius:3px;backdrop-filter:blur(6px);padding:10px 12px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.group{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.btn{all:unset;box-sizing:border-box;font-family:var(--font-body);font-size:13px;font-weight:500;padding:5px 10px;border:1px solid var(--line);border-radius:2px;cursor:pointer;color:var(--ink);background:rgba(235,229,212,.04);white-space:nowrap}
+.btn:hover{border-color:var(--brass-dim)}
+.btn:focus-visible{outline:1px solid var(--brass)}
+.btn[aria-pressed="true"]{background:var(--brass);color:#16120a;border-color:var(--brass)}
+#play{min-width:74px;text-align:center;font-weight:700}
+.seg{display:inline-flex}
+.seg .btn{border-radius:0;margin-left:-1px}
+.seg .btn:first-child{border-radius:2px 0 0 2px;margin-left:0}
+.seg .btn:last-child{border-radius:0 2px 2px 0}
+.slider{display:flex;align-items:center;gap:8px;min-width:0}
+.slider input{width:150px;accent-color:var(--brass)}
+.slider output{font-family:var(--font-mono);font-size:12px;min-width:52px;font-variant-numeric:tabular-nums;color:var(--brass)}
+select{font-family:var(--font-body);font-size:13px;background:#12131f;color:var(--ink);border:1px solid var(--line);border-radius:2px;padding:4px 6px}
+.chk{display:inline-flex;align-items:center;gap:5px;font-size:13px;cursor:pointer}
+.chk input{accent-color:var(--brass)}
+#mini{position:absolute;right:max(16px, env(safe-area-inset-right,0px));width:150px;height:150px;cursor:crosshair}
+.note{font-size:12px;color:var(--muted);max-width:60ch}
+#rosterToggle{display:none}
+@media (max-width: 760px){
+  .plaque h1{font-size:21px}
+  .roster{width:auto;left:max(16px, env(safe-area-inset-left,0px));top:auto;bottom:auto}
+  .roster[hidden]{display:none!important}
+  #rosterToggle{display:inline-block}
+  .slider input{width:110px}
+  #mini{width:110px;height:110px}
+  .dock{gap:8px 12px;padding:8px 10px}
+}
+
+#app[data-view="orrery"] .sky-only, #app[data-view="map"] .sky-only,
+#app[data-view="orrery"] .not-orrery, #app[data-view="map"] .not-map,
+#app:not([data-view="map"]) .map-only, #app:not([data-view="orrery"]) .orrery-only{display:none!important}
+#app[data-view="map"] #mini{display:none}
+.filebtn{position:relative;overflow:hidden}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+#moonList li.off{opacity:.55}
+#lureCtl[hidden]{display:none!important}
+@media (prefers-reduced-motion: reduce){ *{transition:none!important} }
+</style>

@@ -1,0 +1,69 @@
+<div id="app" data-view="sky">
+  <canvas id="sky" aria-label="Animated view of the Ganthian sky, moon system, or ley-line map"></canvas>
+  <div class="overlay">
+    <div class="plaque">
+      <div class="kicker" id="kicker">The sky over Ganthia</div>
+      <h1 id="dateTitle">23rd of Greenmoon</h1>
+      <div class="sub" id="dateSub">12:00 AM · 40°N · facing S</div>
+    </div>
+
+    <aside class="roster" id="roster" aria-label="Moons">
+      <header><h2>The Moons</h2><span>lit · dist · alt</span></header>
+      <ul id="moonList"></ul>
+    </aside>
+
+    <canvas id="mini" width="300" height="300" aria-label="Inset chart"></canvas>
+
+    <div class="dock" id="dock">
+      <div class="group">
+        <div class="seg" role="group" aria-label="View">
+          <button class="btn" data-view="sky" type="button" aria-pressed="true">Sky</button>
+          <button class="btn" data-view="orrery" type="button" aria-pressed="false">Orrery</button>
+          <button class="btn" data-view="map" type="button" aria-pressed="false">Ley lines</button>
+        </div>
+        <button class="btn" id="play" type="button">Pause</button>
+        <div class="seg" role="group" aria-label="Animation mode">
+          <button class="btn" id="modeNight" type="button" aria-pressed="true">Continuous</button>
+          <button class="btn" id="modeYear" type="button" aria-pressed="false">Night by night</button>
+        </div>
+        <label class="slider" title="Slower ← → faster (keys [ and ])"><span class="lbl">Speed</span><input id="speed" type="range" min="0" max="100" step="1" value="43"><output id="speedOut" style="min-width:74px">1.0 hr/s</output></label>
+        <button class="btn" id="reverse" type="button" aria-pressed="false">Reverse</button>
+        <button class="btn" id="rosterToggle" type="button" aria-expanded="false">Moons</button>
+      </div>
+      <div class="group">
+        <label class="slider"><span class="lbl">Day</span><input id="day" type="range" min="1" max="400" step="1" value="103"><output id="dayOut">103</output></label>
+        <label class="slider"><span class="lbl">Hour</span><input id="hour" type="range" min="0" max="24" step="0.25" value="0"><output id="hourOut">0:00</output></label>
+        <label class="slider not-orrery"><span class="lbl">Lat</span><input id="lat" type="range" min="-70" max="70" step="1" value="40"><output id="latOut">40°N</output></label>
+      </div>
+      <div class="group">
+        <span class="lbl sky-only">Moon size</span>
+        <div class="seg sky-only" role="group" aria-label="Moon size">
+          <button class="btn" data-size="true" type="button" aria-pressed="true">True</button>
+          <button class="btn" data-size="story" type="button" aria-pressed="false">Storybook</button>
+        </div>
+        <span class="lbl orrery-only">Scale</span>
+        <div class="seg orrery-only" role="group" aria-label="Orrery scale">
+          <button class="btn" data-orbscale="enlarged" type="button" aria-pressed="true">Enlarged</button>
+          <button class="btn" data-orbscale="accurate" type="button" aria-pressed="false">Accurate</button>
+        </div>
+        <select id="jump" aria-label="Go to a moon's closest night">
+          <option value="">Go to closest night of…</option>
+        </select>
+        <div class="seg map-only" role="group" aria-label="Map style">
+          <button class="btn" data-mapmode="globe" type="button" aria-pressed="true">Globe</button>
+          <button class="btn" data-mapmode="flat" type="button" aria-pressed="false">Flat</button>
+        </div>
+        <label class="btn map-only filebtn">Load world map<input id="mapFile" type="file" accept="image/*"></label>
+        <label class="slider map-only"><span class="lbl">Shift</span><input id="mapShift" type="range" min="-180" max="180" step="1" value="0"><output id="mapShiftOut">0°</output></label>
+      </div>
+      <div class="group">
+        <label class="chk"><input type="checkbox" id="optLabels" checked> Labels</label>
+        <label class="chk sky-only"><input type="checkbox" id="optSun" checked> Sun</label>
+        <label class="chk sky-only"><input type="checkbox" id="optGrid"> Alt/az grid</label>
+        <label class="chk not-map"><input type="checkbox" id="optBronze"> Bronze debris</label>
+        <label class="chk"><input type="checkbox" id="optAmber"> Amber Moon (9179)</label>
+        <label class="slider" id="lureCtl" hidden title="Net Moon Lure total: pulls minus pushes. 30 = impact."><span class="lbl">Moon Lure</span><input id="lure" type="range" min="0" max="34" step="0.5" value="0"><output id="lureOut" style="min-width:150px">0 · misses by 178k km</output></label>
+      </div>
+    </div>
+  </div>
+</div>
