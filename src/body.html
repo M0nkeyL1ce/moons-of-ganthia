@@ -8,7 +8,7 @@
     </div>
 
     <aside class="roster" id="roster" aria-label="Moons">
-      <header><h2>The Moons</h2><span>lit · dist · alt</span></header>
+      <header><h2>The Moons</h2><label class="chk follow" title="Keep the view on the moon you click; click it again, or drag the view, to let go"><input type="checkbox" id="optFollow"> Follow the moon you click</label><span>lit · dist · alt</span></header>
       <ul id="moonList"></ul>
     </aside>
 
@@ -23,15 +23,16 @@
         </div>
         <button class="btn" id="play" type="button">Pause</button>
         <div class="seg" role="group" aria-label="Animation mode">
-          <button class="btn" id="modeNight" type="button" aria-pressed="true">Continuous</button>
-          <button class="btn" id="modeYear" type="button" aria-pressed="false">Night by night</button>
+          <button class="btn" id="modeNight" type="button" aria-pressed="false">Continuous</button>
+          <button class="btn" id="modeYear" type="button" aria-pressed="true">Night by night</button>
         </div>
         <label class="slider" title="Slower ← → faster (keys [ and ])"><span class="lbl">Speed</span><input id="speed" type="range" min="0" max="100" step="1" value="43"><output id="speedOut" style="min-width:74px">1.0 hr/s</output></label>
         <button class="btn" id="reverse" type="button" aria-pressed="false">Reverse</button>
         <button class="btn" id="rosterToggle" type="button" aria-expanded="false">Moons</button>
       </div>
       <div class="group">
-        <label class="slider"><span class="lbl">Day</span><input id="day" type="range" min="1" max="400" step="1" value="103"><output id="dayOut">103</output></label>
+        <label class="slider"><span class="lbl">Month</span><input id="month" type="range" min="1" max="10" step="1" value="3"><output id="monthOut" style="min-width:84px">Greenmoon</output></label>
+        <label class="slider"><span class="lbl">Day</span><input id="day" type="range" min="1" max="40" step="1" value="23"><output id="dayOut" style="min-width:36px">23rd</output></label>
         <label class="slider"><span class="lbl">Hour</span><input id="hour" type="range" min="0" max="24" step="0.25" value="0"><output id="hourOut">0:00</output></label>
         <label class="slider not-orrery"><span class="lbl">Lat</span><input id="lat" type="range" min="-70" max="70" step="1" value="40"><output id="latOut">40°N</output></label>
       </div>
@@ -60,7 +61,6 @@
         <label class="chk"><input type="checkbox" id="optLabels" checked> Labels</label>
         <label class="chk sky-only"><input type="checkbox" id="optSun" checked> Sun</label>
         <label class="chk sky-only"><input type="checkbox" id="optGrid"> Alt/az grid</label>
-        <label class="chk not-map"><input type="checkbox" id="optBronze"> Bronze debris</label>
 <!--@dm-->        <label class="chk"><input type="checkbox" id="optAmber"> Amber Moon (9179)</label>
         <label class="slider" id="lureCtl" hidden title="Net Moon Lure total: pulls minus pushes. 30 = impact."><span class="lbl">Moon Lure</span><input id="lure" type="range" min="0" max="34" step="0.5" value="0"><output id="lureOut" style="min-width:150px">0 · misses by 178k km</output></label>
 <!--@end-->      </div>

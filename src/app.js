@@ -15,13 +15,16 @@ function speedLabel(mode){ const v = speedVal(mode);
   if(mode==='year') return `${v < 1 ? v.toFixed(2) : v < 10 ? v.toFixed(1) : Math.round(v)} night${v===1?'':'s'}/s`;
   if(v < 1) return `${Math.max(1,Math.round(v*60))} min/s`; if(v < 24) return `${v < 10 ? v.toFixed(1) : Math.round(v)} hr/s`; const d = v/24; return `${d < 10 ? d.toFixed(1) : Math.round(d)} days/s`; }
 
+// the direction of the equator from a latitude: south in the northern hemisphere, north in the southern
+function equatorYaw(lat){ return (lat < 0 ? 0 : 180)*DEG; }
 const state = {
-  view:'sky', t: 102.0, lat: DIROLE_LAT, yaw: 180*DEG, pitch: 28*DEG, fov: 100*DEG,
-  mode: 'night', playing: !reduceMotion, speedX: {night:43, year:58}, reverse: false,
+  // opens facing the equator (south, from Dirole), 120° across: the binocular field of the naked eye
+  view:'sky', t: 102.0, lat: DIROLE_LAT, yaw: equatorYaw(DIROLE_LAT), pitch: 28*DEG, fov: 120*DEG,
+  mode: 'year', playing: !reduceMotion, speedX: {night:43, year:58}, reverse: false,
   size: 'true', fixedHour: 0, dayAcc: 102,
   orb: {az: -60*DEG, el: 28*DEG, dist: 11},
-  mapShift: 0, mapImg: null, mapFocus: null, mapMode: 'globe', /*@dm*/lure: 0, /*@end*/year: 9179, orbScale: 'enlarged',
-  opt: {labels:true, sun:true, grid:false, bronze:false/*@dm*/, amber:false/*@end*/}
+  mapShift: 0, mapImg: null, mapFocus: null, mapMode: 'globe', followOn: false, follow: null, lastAim: null, /*@dm*/lure: 0, /*@end*/year: 9179, orbScale: 'enlarged',
+  opt: {labels:true, sun:true, grid:false/*@dm*/, amber:false/*@end*/}
 };
 
 // ---------- deterministic star field ----------
@@ -42,17 +45,6 @@ const band = [];
     const ca=Math.cos(a), sa=Math.sin(a), cg=Math.cos(g), sg=Math.sin(g);
     band.push({v:[ (e1[0]*ca+e2[0]*sa)*cg + gp[0]*sg, (e1[1]*ca+e2[1]*sa)*cg + gp[1]*sg, (e1[2]*ca+e2[2]*sa)*cg + gp[2]*sg ], b: 0.05 + 0.18*R()});
   }
-}
-// Bronze Moon debris: spread along the old orbit (uniform in mean anomaly, so the belt is fixed among the stars)
-const bronzeBase = MOONS[7];
-const debris = [];
-for(let i=0;i<700;i++){
-  const lp = sunLon(bronzeBase.tp) + Math.PI + (R()-.5)*3*DEG;
-  const o = makeOrbit(lp, bronzeBase.inc + (R()-.5)*4, bronzeBase.sgn);
-  const e = ECC + (R()-.5)*0.012;
-  const r = orbitPos(o, 0, R()*YEAR, e);
-  const d = Math.hypot(r[0],r[1],r[2]);
-  debris.push({r, d, eq: eclToEq([r[0]/d, r[1]/d, r[2]/d]), b: 0.4 + 0.6*R()});
 }
 function hill(azDeg){ const a = azDeg*DEG; return 1.3 + 0.9*Math.sin(3*a+.4) + 0.6*Math.sin(7*a+1.1) + 0.35*Math.sin(17*a+2) + 0.25*Math.sin(29*a); }
 
@@ -267,15 +259,6 @@ function drawSky(sc){
       else { ctx.fillStyle = rgba(st.col, a); ctx.fillRect(p.x-.5, p.y-.5, 1, 1); }
     }
   }
-  if(state.opt.bronze && starVis > 0.01){
-    for(const f of debris){
-      const L = eqToLocal(f.eq, sc.F); if(L[2] < 0.01) continue;
-      const p = proj(L); if(!p || p.x<0||p.y<0||p.x>W||p.y>H) continue;
-      const cosPhi = -dot(sc.S, [f.r[0]/f.d, f.r[1]/f.d, f.r[2]/f.d]);
-      const a = .55*f.b*((1+cosPhi)/2)*Math.min(1, 6e5/f.d)*starVis*Math.min(1,L[2]*4);
-      ctx.fillStyle = `rgba(214,160,92,${a})`; ctx.fillRect(p.x, p.y, 1.3, 1.3);
-    }
-  }
   if(state.opt.sun && sunAlt > -2){
     const p = proj(sc.sunL);
     if(p){ const r = Math.max(7, 0.267*DEG*p.s);
@@ -454,8 +437,7 @@ function drawOrrery(sc){
     const pp = oproj([m.P[0]*PERI_KM/U, m.P[1]*PERI_KM/U, 0]); if(pp){ ctx.fillStyle = rgba(labelColor(m), .7); ctx.fillRect(pp.x-1.5,pp.y-1.5,3,3); }
   });
 /*@dm*/  if(state.opt.amber) polyline3(amberPath(), rgba(AMBER.color,.45), 1, [4,4]);
-/*@end*/  if(state.opt.bronze){ for(const f of debris){ const q=oproj([f.r[0]/U,f.r[1]/U,f.r[2]/U]); if(!q) continue; ctx.fillStyle=`rgba(214,160,92,${.35*f.b})`; ctx.fillRect(q.x,q.y,1.2,1.2); } }
-  // drawables sorted by depth: moons, planet, sun
+/*@end*/  // drawables sorted by depth: moons, planet, sun
   const items = [];
   for(const b of sc.bodies){ if(b.hidden) continue; const p=[b.s.r[0]/U,b.s.r[1]/U,b.s.r[2]/U]; const q=oproj(p); if(q) items.push({type:'moon', b, p, q}); }
   if(pq) items.push({type:'planet', q:pq});
@@ -796,7 +778,7 @@ const roster = $('roster'), listEl = $('moonList'); const rows = [];
   mid.innerHTML = `<div class="mname">${m.name} Moon<span class="tags"></span></div><div class="mmeta">${m.school} · ${m.month}</div>`;
   const num = document.createElement('div'); num.className='mnum';
   btn.append(cv, mid, num); li.append(btn); listEl.append(li);
-  btn.addEventListener('click', ()=>{ /*@dm*/if(m===AMBER && !state.opt.amber){ state.opt.amber = true; $('optAmber').checked = true; syncLure(); } /*@end*/aimAt(m.key); });
+  btn.addEventListener('click', ()=>{ /*@dm*/if(m===AMBER && !state.opt.amber){ state.opt.amber = true; $('optAmber').checked = true; syncLure(); } /*@end*/if(state.followOn && state.follow===m.key){ stopFollow(); if(state.view==='map') state.mapFocus = null; requestDraw(); return; } aimAt(m.key); });
   rows.push({m, li, cv, tags: mid.querySelector('.tags'), num, btn});
 });
 function drawPhaseIcon(cv, m, cosPhi, shadow){
@@ -832,19 +814,40 @@ function updateText(sc){
 }
 function syncSliders(){
   const dp = dateParts(state.t);
-  if(document.activeElement !== $('day')){ $('day').value = dp.doy; }
-  $('dayOut').textContent = `${ordinal(dp.day)} ${MOONS[dp.mi].month}`;
+  if(document.activeElement !== $('month')){ $('month').value = dp.mi + 1; }
+  if(document.activeElement !== $('day')){ $('day').value = dp.day; }
+  $('monthOut').textContent = MOONS[dp.mi].month;
+  $('dayOut').textContent = ordinal(dp.day);
   const h = state.mode==='year' ? state.fixedHour : (state.t - Math.floor(state.t))*24;
   if(document.activeElement !== $('hour')){ $('hour').value = (Math.round(h*4)/4) % 24; }
   $('hourOut').textContent = clock(Math.floor(state.t) + h/24).replace(':00 ',' ');
 }
 function aimAt(key){
   const sc = computeScene(); const b = sc.bodies.find(x=>x.m.key===key); if(!b) return;
+  state.lastAim = key; if(state.followOn){ state.follow = key; syncFollow(); }
   if(state.view==='sky'){ state.yaw = b.aa.az*DEG; state.pitch = Math.max(4, Math.min(80, b.aa.alt))*DEG; }
   else if(state.view==='orrery'){ const r=b.s.r; state.orb.az = Math.atan2(r[1], r[0]) + 0.5; }
-  else { state.mapFocus = state.mapFocus===key ? null : key; if(state.mapFocus && state.mapMode==='globe'){ const k = MOONS.findIndex(m=>m.key===key); if(k>=0){ const pp = leyLines[k].per; globe.lon0 = pp.lon; globe.lat0 = Math.max(-60, Math.min(60, pp.lat)); } } }
+  else { state.mapFocus = state.mapFocus===key && !state.followOn ? null : key; if(state.mapFocus && state.mapMode==='globe'){ const k = MOONS.findIndex(m=>m.key===key); if(k>=0){ const pp = leyLines[k].per; globe.lon0 = pp.lon; globe.lat0 = Math.max(-60, Math.min(60, pp.lat)); } } }
   requestDraw();
 }
+// Follow: while on, the moon last clicked in the list stays in view as time runs
+function syncFollow(){ for(const r of rows){ const on = state.follow===r.m.key; r.li.classList.toggle('following', on); if(state.followOn) r.btn.setAttribute('aria-pressed', on); else r.btn.removeAttribute('aria-pressed'); } }
+function stopFollow(){ if(!state.follow) return; state.follow = null; syncFollow(); }
+function trackFollow(sc){
+  if(!state.follow) return;
+  const b = sc.bodies.find(x=>x.m.key===state.follow); if(!b || b.hidden) return;
+  if(state.view==='sky'){ state.yaw = b.aa.az*DEG; state.pitch = Math.max(4, Math.min(80, b.aa.alt))*DEG; }
+  else if(state.view==='orrery'){ const r=b.s.r; state.orb.az = Math.atan2(r[1], r[0]) + 0.5; }
+  else if(state.mapMode==='globe'){ const q = subPoint(eclToEq(b.s.u), sc.t); globe.lon0 = q.lon; globe.lat0 = Math.max(-89, Math.min(89, q.lat)); }
+}
+$('optFollow').addEventListener('change', e=>{
+  state.followOn = e.target.checked;
+  if(!state.followOn){ state.follow = null; syncFollow(); requestDraw(); return; }
+  // start on the moon last clicked, else the one shown on the map, else the closest
+  const sc = computeScene(), visible = k => sc.bodies.some(b=>b.m.key===k && !b.hidden);
+  const key = [state.lastAim, state.mapFocus].find(k=>k && visible(k)) || (sc.closest && sc.closest.m.key);
+  if(key) aimAt(key);
+});
 
 // ---------- controls ----------
 const speedSel = $('speed');
@@ -870,11 +873,15 @@ document.querySelectorAll('[data-view]').forEach(b=>{ if(b.tagName!=='BUTTON') r
   try{ location.hash = state.view; }catch(e){}
   layout();
 }); });
-$('day').addEventListener('input', e=>{ const d = +e.target.value - 1, h = state.mode==='year' ? state.fixedHour/24 : state.t - Math.floor(state.t); state.t = d + h; state.dayAcc = d; lastTextT = -1; requestDraw(); });
+// the date is set as a month (1-10) and a day of that month (1-40)
+function setDate(mi, day){ const d = mi*40 + day - 1, h = state.mode==='year' ? state.fixedHour/24 : state.t - Math.floor(state.t); state.t = d + h; state.dayAcc = d; lastTextT = -1; requestDraw(); }
+$('month').addEventListener('input', e=>setDate(+e.target.value - 1, dateParts(state.t).day));
+$('day').addEventListener('input', e=>setDate(dateParts(state.t).mi, +e.target.value));
 $('hour').addEventListener('input', e=>{ const h = +e.target.value % 24; state.fixedHour = h; state.t = Math.floor(state.t) + h/24; lastTextT = -1; requestDraw(); });
-$('lat').addEventListener('input', e=>{ state.lat = +e.target.value; $('latOut').textContent = latStr(state.lat); requestDraw(); });
+// crossing the equator turns the view to face it from the new hemisphere
+$('lat').addEventListener('input', e=>{ const was = state.lat; state.lat = +e.target.value; if((was < 0) !== (state.lat < 0)) state.yaw = equatorYaw(state.lat); $('latOut').textContent = latStr(state.lat); requestDraw(); });
 document.querySelectorAll('[data-size]').forEach(b=>b.addEventListener('click', ()=>{ state.size = b.dataset.size; document.querySelectorAll('[data-size]').forEach(x=>x.setAttribute('aria-pressed', x===b)); requestDraw(); }));
-[['optLabels','labels'],['optSun','sun'],['optGrid','grid'],['optBronze','bronze']/*@dm*/,['optAmber','amber']/*@end*/].forEach(([id,k])=>$(id).addEventListener('change', e=>{ state.opt[k] = e.target.checked; /*@dm*/syncLure(); /*@end*/requestDraw(); }));
+[['optLabels','labels'],['optSun','sun'],['optGrid','grid']/*@dm*/,['optAmber','amber']/*@end*/].forEach(([id,k])=>$(id).addEventListener('change', e=>{ state.opt[k] = e.target.checked; /*@dm*/syncLure(); /*@end*/requestDraw(); }));
 /*@dm*/function syncLure(){
   $('lureCtl').hidden = !state.opt.amber;
   const m = amberMiss(), L = state.lure;
@@ -918,6 +925,7 @@ sky.addEventListener('pointermove', e=>{
   const prev = ptrs.get(e.pointerId); if(!prev) return;
   const cur = {x:e.clientX, y:e.clientY}; ptrs.set(e.pointerId, cur);
   if(ptrs.size===1){
+    stopFollow();
     if(state.view==='sky'){ const scale = K/2; state.yaw -= (cur.x-prev.x)/scale; state.pitch = Math.max(-8*DEG, Math.min(89*DEG, state.pitch + (cur.y-prev.y)/scale)); }
     else if(state.view==='map'){ globe.lon0 -= (cur.x-prev.x)/globe.R/DEG; globe.lat0 = Math.max(-89, Math.min(89, globe.lat0 + (cur.y-prev.y)/globe.R/DEG)); }
     else { state.orb.az -= (cur.x-prev.x)*0.006; state.orb.el = Math.max(-85*DEG, Math.min(85*DEG, state.orb.el + (cur.y-prev.y)*0.006)); }
@@ -953,7 +961,7 @@ function layout(){
   requestDraw();
 }
 function draw(){
-  const sc = computeScene(); lastScene = sc;
+  const sc = computeScene(); trackFollow(sc); lastScene = sc;
   ctx.setTransform(DPR,0,0,DPR,0,0);
   if(state.view==='sky') drawSky(sc); else if(state.view==='orrery') drawOrrery(sc); else if(state.mapMode==='globe') drawGlobe(sc); else drawMap(sc);
 /*@dm*/  if(sc.amberImpact) drawImpact(sc);
