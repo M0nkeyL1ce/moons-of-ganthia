@@ -165,6 +165,10 @@ select{font-family:var(--font-body);font-size:13px;background:#12131f;color:var(
         <label class="chk"><input type="checkbox" id="optLabels" checked> Labels</label>
         <label class="chk sky-only"><input type="checkbox" id="optSun" checked> Sun</label>
         <label class="chk sky-only"><input type="checkbox" id="optGrid"> Alt/az grid</label>
+        <div class="seg" role="group" aria-label="Distance units">
+          <button class="btn" data-units="km" type="button" aria-pressed="true">km</button>
+          <button class="btn" data-units="mi" type="button" aria-pressed="false">mi</button>
+        </div>
       </div>
     </div>
   </div>
@@ -252,12 +256,16 @@ function speedLabel(mode){ const v = speedVal(mode);
   if(mode==='year') return `${v < 1 ? v.toFixed(2) : v < 10 ? v.toFixed(1) : Math.round(v)} night${v===1?'':'s'}/s`;
   if(v < 1) return `${Math.max(1,Math.round(v*60))} min/s`; if(v < 24) return `${v < 10 ? v.toFixed(1) : Math.round(v)} hr/s`; const d = v/24; return `${d < 10 ? d.toFixed(1) : Math.round(d)} days/s`; }
 
+// distances show in kilometers or miles; the viewer's choice is kept in this browser when it can be
+const KM_PER_MI = 1.609344;
+function savedUnits(){ try{ return localStorage.getItem('moons-units') === 'mi' ? 'mi' : 'km'; }catch(e){ return 'km'; } }
+function inUnits(km){ return state.units === 'mi' ? km/KM_PER_MI : km; }
 // the direction of the equator from a latitude: south in the northern hemisphere, north in the southern
 function equatorYaw(lat){ return (lat < 0 ? 0 : 180)*DEG; }
 const state = {
   // opens facing the equator (south, from Dirole), 45° across: about what an eye fixed on one thing sees clearly
   view:'sky', t: 102.0, lat: DIROLE_LAT, yaw: equatorYaw(DIROLE_LAT), pitch: 8*DEG, fov: 45*DEG,
-  mode: 'year', playing: !reduceMotion, speedX: {night:43, year:speedPos('year', 1)}, reverse: false,   // night by night opens at 1 night/s
+  mode: 'year', playing: !reduceMotion, speedX: {night:43, year:speedPos('year', 1)}, reverse: false, units: savedUnits(),   // night by night opens at 1 night/s
   size: 'true', fixedHour: 0, dayAcc: 102,
   orb: {az: -60*DEG, el: 28*DEG, dist: 11},
   mapShift: 0, mapImg: null, mapFocus: null, mapMode: 'globe', followOn: false, follow: null, lastAim: null, year: 9179, orbScale: 'enlarged',
@@ -583,7 +591,9 @@ function drawOrrery(sc){
   for(let i=0;i<stars.length;i+=3){ const st=stars[i]; const v=st.v; const p=[ocam.pos[0]+v[0]*1e4, ocam.pos[1]+v[1]*1e4, ocam.pos[2]+v[2]*1e4]; const q=oproj(p); if(!q||q.x<0||q.y<0||q.x>W||q.y>H) continue; ctx.fillStyle=rgba(st.col,.15+.5*st.b); ctx.fillRect(q.x,q.y,1.2,1.2); }
   // ecliptic plane rings
   ctx.font = '500 10px "IBM Plex Mono", monospace'; ctx.textAlign='left'; ctx.textBaseline='middle';
-  for(let rr=1; rr<=4; rr++){ const pts=[]; for(let a=0;a<=360;a+=4) pts.push([rr*Math.cos(a*DEG), rr*Math.sin(a*DEG), 0]); polyline3(pts, 'rgba(235,229,212,0.08)', 1); const q=oproj([rr,0,0]); if(q){ ctx.fillStyle='rgba(162,156,176,0.55)'; ctx.fillText(`${rr}M km`, q.x+3, q.y); } }
+  // rings at whole millions of the chosen unit: 1-4M km, or 1-3M mi
+  const ringStep = state.units === 'mi' ? KM_PER_MI : 1, rings = state.units === 'mi' ? 3 : 4;
+  for(let i=1; i<=rings; i++){ const rr = i*ringStep, pts=[]; for(let a=0;a<=360;a+=4) pts.push([rr*Math.cos(a*DEG), rr*Math.sin(a*DEG), 0]); polyline3(pts, 'rgba(235,229,212,0.08)', 1); const q=oproj([rr,0,0]); if(q){ ctx.fillStyle='rgba(162,156,176,0.55)'; ctx.fillText(`${i}M ${state.units}`, q.x+3, q.y); } }
   for(let a=0;a<360;a+=30) polyline3([[0,0,0],[4.3*Math.cos(a*DEG),4.3*Math.sin(a*DEG),0]], 'rgba(235,229,212,0.05)', 1);
   const S = sc.S;
   // sunlight: sun drawn off-scale in its true direction
@@ -622,7 +632,7 @@ function drawOrrery(sc){
       const gr = ctx.createRadialGradient(q.x,q.y,r*.4,q.x,q.y,r*4); gr.addColorStop(0,'rgba(255,240,200,0.6)'); gr.addColorStop(1,'rgba(255,240,200,0)');
       ctx.fillStyle=gr; ctx.beginPath(); ctx.arc(q.x,q.y,r*4,0,Math.PI*2); ctx.fill();
       ctx.fillStyle='#fff6d8'; ctx.beginPath(); ctx.arc(q.x,q.y,r,0,Math.PI*2); ctx.fill();
-      if(state.opt.labels){ ctx.font='400 15px "IM Fell English SC", Georgia, serif'; ctx.textAlign='center'; ctx.fillStyle='rgba(255,240,205,0.9)'; ctx.fillText('Sun', q.x, q.y+r+12); ctx.font='500 10px "IBM Plex Mono", monospace'; ctx.fillStyle='rgba(162,156,176,0.8)'; ctx.fillText(ACC ? '150M km · to scale' : '150M km · not to scale', q.x, q.y+r+27); }
+      if(state.opt.labels){ ctx.font='400 15px "IM Fell English SC", Georgia, serif'; ctx.textAlign='center'; ctx.fillStyle='rgba(255,240,205,0.9)'; ctx.fillText('Sun', q.x, q.y+r+12); ctx.font='500 10px "IBM Plex Mono", monospace'; ctx.fillStyle='rgba(162,156,176,0.8)'; ctx.fillText(`${fmtDist(D_SUN)} · ${ACC ? 'to scale' : 'not to scale'}`, q.x, q.y+r+27); }
     } else if(it.type==='planet'){
       const r = planetPx(planetR*q.s);
       // lit hemisphere toward the sun
@@ -875,7 +885,7 @@ function drawGlobe(sc){
   if(state.lat !== DIROLE_LAT){ const ob = gproj(llVec(state.lat,0)); if(ob.z>0){ ctx.strokeStyle='#d6b26a'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(ob.x-6,ob.y); ctx.lineTo(ob.x+6,ob.y); ctx.moveTo(ob.x,ob.y-6); ctx.lineTo(ob.x,ob.y+6); ctx.stroke(); ctx.font='500 10px "IBM Plex Mono", monospace'; ctx.fillStyle='#d6b26a'; ctx.fillText('observer', ob.x+9, ob.y); } }
   ctx.strokeStyle='rgba(235,229,212,0.25)'; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.stroke();
   ctx.font='500 10px "IBM Plex Mono", monospace'; ctx.textAlign='center'; ctx.textBaseline='top'; ctx.fillStyle='rgba(162,156,176,0.8)';
-  const cap = state.mapFocus ? `Showing the ${state.mapFocus[0].toUpperCase()+state.mapFocus.slice(1)} ley line · click it in the list again to show all` : 'Drag to turn · scroll to zoom · line width follows the moon’s apparent size (1 mile at the ends, about 1.9 miles at closest; drawn enlarged) · click a moon in the list to isolate its line';
+  const cap = state.mapFocus ? `Showing the ${state.mapFocus[0].toUpperCase()+state.mapFocus.slice(1)} ley line · click it in the list again to show all` : `Drag to turn · scroll to zoom · line width follows the moon’s apparent size (${state.units === 'mi' ? '1 mile at the ends, about 1.9 miles' : '1.6 km at the ends, about 3.1 km'} at closest; drawn enlarged) · click a moon in the list to isolate its line`;
   ctx.fillText(cap, cx, Math.min(lay.bottom + 10, cy + R + 14));
 }
 
@@ -924,7 +934,7 @@ function dateParts(t){ const d = Math.floor(t), mi = Math.floor(d/40), day = d%4
 function clock(t){ const h = (t - Math.floor(t))*24; let H = Math.floor(h), M = Math.round((h-H)*60); if(M===60){M=0;H=(H+1)%24;} const ap = H<12?'AM':'PM', h12 = (H%12)||12; return `${h12}:${String(M).padStart(2,'0')} ${ap}`; }
 function facing(yawRad){ const n=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW']; const a=((yawRad/DEG)%360+360)%360; return n[Math.round(a/22.5)%16]; }
 function latStr(v){ return v===0 ? '0°' : `${Math.abs(v)}°${v>0?'N':'S'}`; }
-function fmtDist(d){ return d >= 1e7 ? `${(d/1e6).toFixed(0)}M km` : d >= 1e6 ? `${(d/1e6).toFixed(2)}M km` : `${Math.round(d/1e3)}k km`; }
+function fmtDist(km){ const d = inUnits(km), u = state.units; return d >= 1e7 ? `${(d/1e6).toFixed(0)}M ${u}` : d >= 1e6 ? `${(d/1e6).toFixed(2)}M ${u}` : `${Math.round(d/1e3)}k ${u}`; }
 
 const roster = $('roster'), listEl = $('moonList'); const rows = [];
 [...MOONS.filter(m=>m.present)].forEach(m=>{
@@ -1051,6 +1061,13 @@ $('mapFile').addEventListener('change', e=>{
   im.src = url;
 });
 document.querySelectorAll('[data-mapmode]').forEach(b=>b.addEventListener('click', ()=>{ state.mapMode = b.dataset.mapmode; document.querySelectorAll('[data-mapmode]').forEach(x=>x.setAttribute('aria-pressed', x===b)); sky.style.cursor = state.mapMode==='globe' ? '' : 'default'; requestDraw(); }));
+function setUnits(u){
+  state.units = u; document.querySelectorAll('[data-units]').forEach(x=>x.setAttribute('aria-pressed', x.dataset.units===u));
+  try{ localStorage.setItem('moons-units', u); }catch(e){}
+  lastTextT = -1; requestDraw();
+}
+document.querySelectorAll('[data-units]').forEach(b=>b.addEventListener('click', ()=>setUnits(b.dataset.units)));
+document.querySelectorAll('[data-units]').forEach(x=>x.setAttribute('aria-pressed', x.dataset.units===state.units));
 function orbMinDist(){ return state.orbScale === 'accurate' ? 0.03 : 1.2; }
 document.querySelectorAll('[data-orbscale]').forEach(b=>b.addEventListener('click', ()=>{ state.orbScale = b.dataset.orbscale; document.querySelectorAll('[data-orbscale]').forEach(x=>x.setAttribute('aria-pressed', x===b)); state.orb.dist = Math.max(orbMinDist(), state.orb.dist); requestDraw(); }));
 const jump = $('jump');
