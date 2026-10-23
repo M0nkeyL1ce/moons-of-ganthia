@@ -244,7 +244,10 @@ const SIZE_MODES = { true: 1, story: 2.5/TRUE_DIAM };
 const EARTH_MOON_R = 0.259*DEG;                           // Earth's Moon apparent radius, for the scale ring
 const DIROLE_LAT = 40;
 const SPEED_RANGE = { night: [1/60, 240], year: [0.25, 30] };  // hours per second / nights per second
-function speedVal(mode){ const [lo,hi] = SPEED_RANGE[mode], x = state.speedX[mode]/100; return Math.pow(10, Math.log10(lo) + (Math.log10(hi)-Math.log10(lo))*x); }
+function speedVal(mode){ const [lo,hi] = SPEED_RANGE[mode], x = state.speedX[mode]/100, v = Math.pow(10, Math.log10(lo) + (Math.log10(hi)-Math.log10(lo))*x);
+  return Math.abs(v - Math.round(v)) < 1e-9 ? Math.round(v) : v; }   // drop float dust so a whole speed reads whole
+// the slider position (0-100) that gives speed v; used for defaults that fall between slider steps
+function speedPos(mode, v){ const [lo,hi] = SPEED_RANGE[mode]; return 100*(Math.log10(v)-Math.log10(lo))/(Math.log10(hi)-Math.log10(lo)); }
 function speedLabel(mode){ const v = speedVal(mode);
   if(mode==='year') return `${v < 1 ? v.toFixed(2) : v < 10 ? v.toFixed(1) : Math.round(v)} night${v===1?'':'s'}/s`;
   if(v < 1) return `${Math.max(1,Math.round(v*60))} min/s`; if(v < 24) return `${v < 10 ? v.toFixed(1) : Math.round(v)} hr/s`; const d = v/24; return `${d < 10 ? d.toFixed(1) : Math.round(d)} days/s`; }
@@ -254,7 +257,7 @@ function equatorYaw(lat){ return (lat < 0 ? 0 : 180)*DEG; }
 const state = {
   // opens facing the equator (south, from Dirole), 45° across: about what an eye fixed on one thing sees clearly
   view:'sky', t: 102.0, lat: DIROLE_LAT, yaw: equatorYaw(DIROLE_LAT), pitch: 8*DEG, fov: 45*DEG,
-  mode: 'year', playing: !reduceMotion, speedX: {night:43, year:58}, reverse: false,
+  mode: 'year', playing: !reduceMotion, speedX: {night:43, year:speedPos('year', 1)}, reverse: false,   // night by night opens at 1 night/s
   size: 'true', fixedHour: 0, dayAcc: 102,
   orb: {az: -60*DEG, el: 28*DEG, dist: 11},
   mapShift: 0, mapImg: null, mapFocus: null, mapMode: 'globe', followOn: false, follow: null, lastAim: null, year: 9179, orbScale: 'enlarged',
