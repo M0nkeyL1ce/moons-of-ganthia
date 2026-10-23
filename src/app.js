@@ -18,9 +18,9 @@ function speedLabel(mode){ const v = speedVal(mode);
   if(mode==='year') return `${v < 1 ? v.toFixed(2) : v < 10 ? v.toFixed(1) : Math.round(v)} night${v===1?'':'s'}/s`;
   if(v < 1) return `${Math.max(1,Math.round(v*60))} min/s`; if(v < 24) return `${v < 10 ? v.toFixed(1) : Math.round(v)} hr/s`; const d = v/24; return `${d < 10 ? d.toFixed(1) : Math.round(d)} days/s`; }
 
-// distances show in kilometers or miles; the viewer's choice is kept in this browser when it can be
+// distances show in miles (the default) or kilometers; the viewer's choice is kept in this browser when it can be
 const KM_PER_MI = 1.609344;
-function savedUnits(){ try{ return localStorage.getItem('moons-units') === 'mi' ? 'mi' : 'km'; }catch(e){ return 'km'; } }
+function savedUnits(){ try{ return localStorage.getItem('moons-units') === 'km' ? 'km' : 'mi'; }catch(e){ return 'mi'; } }
 function inUnits(km){ return state.units === 'mi' ? km/KM_PER_MI : km; }
 // the direction of the equator from a latitude: south in the northern hemisphere, north in the southern
 function equatorYaw(lat){ return (lat < 0 ? 0 : 180)*DEG; }
