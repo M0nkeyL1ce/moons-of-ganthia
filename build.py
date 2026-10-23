@@ -4,7 +4,8 @@ Source between @dm markers is for the DM only (the Amber Moon and its 9179 pass)
   /*@dm*/ ... /*@end*/  in JS and CSS,  <!--@dm--> ... <!--@end-->  in HTML,
   /*@dm*/ dm text /*@else*/ player text /*@end*/  to swap a value.
 
-  index.html                 player edition, full HTML document; this is the published site
+  index.html                 player edition, full HTML document; GitHub Pages serves it
+  site/index.html            the same player page; Cloudflare deploys only site/ (wrangler.jsonc)
   dm/index.html              DM edition, full HTML document; open it locally
   dm/moons-of-ganthia.html   DM edition as a fragment; the form published as the Claude artifact
 
@@ -48,6 +49,7 @@ found = [w for w in LEAKS if w in player.lower()]
 if found:
     sys.exit(f"!! player edition NOT written: it still contains {', '.join(found)}")
 write(root / "index.html", player)
+write(root / "site" / "index.html", player)
 
 dm = fragment(dm=True)
 write(root / "dm" / "index.html", document(*dm))

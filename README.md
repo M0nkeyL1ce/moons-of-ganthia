@@ -9,8 +9,15 @@ Source between `@dm` markers is DM only: `/*@dm*/ … /*@end*/` in JS and CSS, `
 and `/*@dm*/ dm text /*@else*/ player text /*@end*/` to swap a value (the lost fifth moon is "Fifth" for players).
 The player edition has that code removed, not hidden; `build.py` refuses to write it if an Amber word is left.
 
-- Players: https://m0nkeyl1ce.github.io/moons-of-ganthia/ (`index.html`).
+- Players: https://m0nkeyl1ce.github.io/moons-of-ganthia/ (`index.html`), and Cloudflare (below; `site/index.html`).
 - DM: `dm/index.html` on this machine, or the private Claude artifact (`dm/moons-of-ganthia.html`). `dm/` is gitignored.
+
+## Deploying (Cloudflare)
+Like DiceGame, Cloudflare is connected to this GitHub repo and redeploys on every push to `main`.
+`wrangler.jsonc` deploys static assets from `site/` only, so `src/` (which holds the DM-only code) is never served.
+One-time setup in the Cloudflare dashboard: Workers & Pages → Create → Import a repository → `moons-of-ganthia`;
+build command empty, deploy command `npx wrangler deploy`. Add a custom domain under the Worker's Settings → Domains & Routes.
+To update the site: `python3 build.py`, commit `index.html` and `site/index.html`, push.
 
 ## Layout
 - `index.html` — the player edition as a full HTML document; open it in any browser (needs no server) or put it on any static web host. GitHub Pages serves it.

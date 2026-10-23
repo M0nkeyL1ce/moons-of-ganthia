@@ -1,0 +1,9 @@
+// Cloudflare deploy: static assets only, from site/ (the player edition that build.py writes).
+// Never point this at the repo root: src/ holds the DM-only Amber Moon code.
+{
+  "name": "moons-of-ganthia",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": "./site"
+  }
+}
