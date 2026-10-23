@@ -338,25 +338,32 @@ function drawSky(sc){
     const placed = [], listR = !roster.hidden && window.innerWidth > 760 ? roster.getBoundingClientRect() : null, appR = app.getBoundingClientRect();
     for(const b of sc.bodies){
       if(b.hidden || /*@dm*/b.amber || /*@end*/b.aa.alt >= hill(b.aa.az)) continue;
-      const h = hill(b.aa.az) + 1.5, ca = Math.cos(h*DEG);
-      const p = proj([Math.sin(b.aa.az*DEG)*ca, Math.cos(b.aa.az*DEG)*ca, Math.sin(h*DEG)]);
+      const p = proj(skylinePoint(b.aa.az));
       if(!p || p.dz < 0.05 || p.x < 8 || p.x > W-8 || p.y < 8 || p.y > H-8) continue;
       const text = `${b.m.name} · under the horizon`, tw = ctx.measureText(text).width;
-      let x = p.x + 9, y = p.y;
+      const y0 = p.y - POINTER_H/2;
+      let x = p.x + 9, y = y0;
       const clear = () => !placed.some(q => Math.abs(q.y - y) < 15 && x < q.x + q.w && q.x < x + tw);
       while(!clear()) y -= 15;
       const rightLim = listR && y > listR.top - appR.top - 10 && y < listR.bottom - appR.top + 10 ? listR.left - appR.left - 8 : W - 8;
       // too far right: the tag ends left of the moon's mark, and never under the moon list
-      if(x + tw > rightLim){ x = Math.min(p.x - 9, rightLim) - tw; y = p.y; while(!clear()) y -= 15; }
+      if(x + tw > rightLim){ x = Math.min(p.x - 9, rightLim) - tw; y = y0; while(!clear()) y -= 15; }
       placed.push({x, y, w: tw});
-      ctx.save(); ctx.strokeStyle = rgba(labelColor(b.m), .75); ctx.lineWidth = 1; ctx.setLineDash([2,3]);
-      ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI*2); ctx.stroke(); ctx.restore();
+      drawHorizonPointer(p.x, p.y, labelColor(b.m));
       ctx.fillStyle = 'rgba(5,7,13,0.6)'; ctx.fillText(text, x+1, y+1);
       ctx.fillStyle = rgba(labelColor(b.m), .8); ctx.fillText(text, x, y);
     }
   }
 /*@dm*/  drawAmberTag(sc, drawn, dayness);
 /*@end*/}
+// the skyline (top of the hills) at a bearing, as a local direction
+function skylinePoint(azDeg){ const h = hill(azDeg), ca = Math.cos(h*DEG); return [Math.sin(azDeg*DEG)*ca, Math.cos(azDeg*DEG)*ca, Math.sin(h*DEG)]; }
+// a moon under the horizon: a downward triangle whose tip touches the skyline at the moon's bearing
+const POINTER_H = 9;
+function drawHorizonPointer(x, y, col){
+  ctx.fillStyle = rgba(col, .85); ctx.strokeStyle = 'rgba(5,7,13,0.7)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 5, y - POINTER_H); ctx.lineTo(x + 5, y - POINTER_H); ctx.closePath(); ctx.fill(); ctx.stroke();
+}
 
 /*@dm*/// Amber Moon tag: always labelled while it is switched on, even when too faint to see, in daylight,
 // below the horizon (tag sits on the horizon) or outside the view (tag pins to the screen edge).
@@ -365,7 +372,7 @@ function drawAmberTag(sc, drawn, dayness){
   const vis = drawn.find(d=>d.b===b);
   const below = b.aa.alt < hill(b.aa.az);
   let L = b.L, note = '';
-  if(below){ const h = hill(b.aa.az)+1.5, ca = Math.cos(h*DEG); L = [Math.sin(b.aa.az*DEG)*ca, Math.cos(b.aa.az*DEG)*ca, Math.sin(h*DEG)]; note = 'under the horizon'; }
+  if(below){ L = skylinePoint(b.aa.az); note = 'under the horizon'; }
   else {
     // judge visibility by brightness alone, not by whether it is on screen
     const mg = amberMag(b.s), lim = lerp(6.5, -4.5, dayness), seen = (lim - mg)/3 > 0.02;
@@ -381,6 +388,8 @@ function drawAmberTag(sc, drawn, dayness){
     p = {x: W/2 + ux*s, y: H/2 + uy*s}; edge = true;
     ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(Math.atan2(uy,ux)); ctx.fillStyle = rgba(col,.9);
     ctx.beginPath(); ctx.moveTo(10,0); ctx.lineTo(-4,-6); ctx.lineTo(-4,6); ctx.closePath(); ctx.fill(); ctx.restore();
+  } else if(below){
+    drawHorizonPointer(p.x, p.y, col);
   } else if(!vis){
     ctx.save(); ctx.strokeStyle = rgba(col,.75); ctx.lineWidth = 1; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.arc(p.x,p.y,6,0,Math.PI*2); ctx.stroke(); ctx.restore();
   }
@@ -388,7 +397,7 @@ function drawAmberTag(sc, drawn, dayness){
   const text = `Amber${note ? ' · ' + note : ''}${b.s.d < 1e7 ? '' : ' · ' + fmtDist(b.s.d)}`;
   ctx.font = '400 14px "IM Fell English SC", Georgia, serif'; ctx.textBaseline = 'middle';
   const tw = ctx.measureText(text).width;
-  let tx = p.x + off, ty = p.y;
+  let tx = p.x + off, ty = below && !edge ? p.y - POINTER_H/2 : p.y;
   let rightLim = W - 8;
   if(!roster.hidden && window.innerWidth > 760){ const rr = roster.getBoundingClientRect(), ar = app.getBoundingClientRect(); if(ty > rr.top - ar.top - 10 && ty < rr.bottom - ar.top + 10) rightLim = rr.left - ar.left - 8; }
   if(tx + tw > rightLim) tx = p.x - off - tw;
