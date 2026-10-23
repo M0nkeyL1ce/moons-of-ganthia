@@ -92,7 +92,6 @@ select{font-family:var(--font-body);font-size:13px;background:#12131f;color:var(
 .filebtn{position:relative;overflow:hidden}
 .filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
 #moonList li.off{opacity:.55}
-#lureCtl[hidden]{display:none!important}
 @media (prefers-reduced-motion: reduce){ *{transition:none!important} }
 </style>
 <style>html,body{margin:0}</style>
@@ -161,8 +160,6 @@ select{font-family:var(--font-body);font-size:13px;background:#12131f;color:var(
         <label class="chk sky-only"><input type="checkbox" id="optSun" checked> Sun</label>
         <label class="chk sky-only"><input type="checkbox" id="optGrid"> Alt/az grid</label>
         <label class="chk not-map"><input type="checkbox" id="optBronze"> Bronze debris</label>
-        <label class="chk"><input type="checkbox" id="optAmber"> Amber Moon (9179)</label>
-        <label class="slider" id="lureCtl" hidden title="Net Moon Lure total: pulls minus pushes. 30 = impact."><span class="lbl">Moon Lure</span><input id="lure" type="range" min="0" max="34" step="0.5" value="0"><output id="lureOut" style="min-width:150px">0 · misses by 178k km</output></label>
       </div>
     </div>
   </div>
@@ -178,7 +175,7 @@ const MOONS = [
   {key:'blue',   name:'Blue',   month:'Bluemoon',   school:'Transmutation', color:[86,148,240], inc:18, sgn:-1, present:true},
   {key:'green',  name:'Green',  month:'Greenmoon',  school:'Conjuration',   color:[92,196,112], inc:40, sgn: 1, present:true},
   {key:'gold',   name:'Gold',   month:'Goldmoon',   school:'Abjuration',    color:[243,200,80], inc:75, sgn:-1, present:true},
-  {key:'fifth',  name:'Amber',  month:'Fifthmoon',  school:'(lost)',        color:[255,150,50], inc:30, sgn: 1, present:false},
+  {key:'fifth',  name:'Fifth',  month:'Fifthmoon',  school:'(lost)',        color:[255,150,50], inc:30, sgn: 1, present:false},
   {key:'red',    name:'Red',    month:'Redmoon',    school:'Evocation',     color:[236,78,64],  inc:52.994, sgn: 1, present:true},
   {key:'silver', name:'Silver', month:'Silvermoon', school:'Enchantment',   color:[202,206,216],inc:55, sgn: 1, present:true},
   {key:'eighth', name:'Bronze', month:'Eighthmoon', school:'(shattered)',   color:[184,135,74], inc:47, sgn:-1, present:false},
@@ -252,8 +249,8 @@ const state = {
   mode: 'night', playing: !reduceMotion, speedX: {night:43, year:58}, reverse: false,
   size: 'true', fixedHour: 0, dayAcc: 102,
   orb: {az: -60*DEG, el: 28*DEG, dist: 11},
-  mapShift: 0, mapImg: null, mapFocus: null, mapMode: 'globe', lure: 0, year: 9179, orbScale: 'enlarged',
-  opt: {labels:true, sun:true, grid:false, bronze:false, amber:false}
+  mapShift: 0, mapImg: null, mapFocus: null, mapMode: 'globe', year: 9179, orbScale: 'enlarged',
+  opt: {labels:true, sun:true, grid:false, bronze:false}
 };
 
 // ---------- deterministic star field ----------
@@ -288,63 +285,13 @@ for(let i=0;i<700;i++){
 }
 function hill(azDeg){ const a = azDeg*DEG; return 1.3 + 0.9*Math.sin(3*a+.4) + 0.6*Math.sin(7*a+1.1) + 0.35*Math.sin(17*a+2) + 0.25*Math.sin(29*a); }
 
-// Amber Moon: on a ~1,000-year orbit around the sun (semi-major axis 100× Ganthia's), modelled as a real orbit.
-// Solved so that (a) it was full, opposite the sun, when Sinclair saw it on the 39th of Greenmoon 9179, and
-// (b) on its natural path (no Moon Lure pulls) it passes 178,000 km from the planet's centre, directly over Dirole
-// at about 4 PM on the 40th of Violetmoon, just before sunset. Relative speed 31.4 km/s. Planet gravity is ignored
-// (it bends the path by well under a degree).
-const AMBER = { key:'amber', name:'Amber', month:'Fifthmoon', school:'1,000-year orbit', color:[255,150,50] };
-const AMBER_TC = 399.6660, AMBER_RP0 = 1.78e5, AMBER_SPEED = 31.440, AMBER_V = AMBER_SPEED*86400; // km per day
-const CONTACT_KM = R_PLANET + MOON_R;   // centres this close = the moons touch the ground
-// Moon Lure: the net lure total bends the pass inward. 0 = natural 178,000 km miss; 30 = grazing impact; above 30 = a deeper hit.
-function amberMiss(){ const L = state.lure; return L <= 30 ? CONTACT_KM + (AMBER_RP0 - CONTACT_KM)*(1 - L/30) : Math.max(0, CONTACT_KM*(1 - (L-30)/4)); }
-function amberImpactT(){ const m = amberMiss(); return m <= CONTACT_KM + 1e-6 ? AMBER_TC - Math.sqrt(Math.max(0, CONTACT_KM*CONTACT_KM - m*m))/AMBER_V : null; }
-const amberV = [0.1522702403501628, 0.9883388962818895, -1.8687148099137944e-17];   // direction of travel relative to Ganthia (ecliptic frame)
-const amberB = [0.6597705617681254, -0.10196760368823982, 0.7445168994873455];   // Dirole's zenith at the moment of closest approach
-function amberT(t){ return t + (state.year - 9179)*YEAR; }        // the pass belongs to 9179; later years see it receding
-// sun-centred orbit, integrated once, stored as position relative to Ganthia every half day from 9179 day 0 to 9180 day 400
-const AMB_TAB = (()=>{
-  const DAYS = 86400, vp = 2*Math.PI*D_SUN/(YEAR*DAYS), GM = vp*vp*D_SUN;
-  const P = t=>{ const S=sunVec(t); return [-S[0]*D_SUN, -S[1]*D_SUN, -S[2]*D_SUN]; };
-  const Vp = t=>{ const th = sunLon(t)+Math.PI; return [-Math.sin(th)*vp, Math.cos(th)*vp, 0]; };
-  const acc = r=>{ const d=Math.hypot(r[0],r[1],r[2]), k=-GM/(d*d*d); return [r[0]*k, r[1]*k, r[2]*k]; };
-  const p0 = P(AMBER_TC), vP = Vp(AMBER_TC);
-  const r0 = [p0[0]+amberB[0]*AMBER_RP0, p0[1]+amberB[1]*AMBER_RP0, p0[2]+amberB[2]*AMBER_RP0];
-  const v0 = [vP[0]+amberV[0]*AMBER_SPEED, vP[1]+amberV[1]*AMBER_SPEED, vP[2]+amberV[2]*AMBER_SPEED];
-  const STEP = 0.5, N = 1600, tab = new Array(N+1);
-  function run(dir){
-    let r = r0.slice(), v = v0.slice(), t = AMBER_TC; const sub = 10, h = dir*STEP/sub*DAYS;
-    // first, step to the nearest grid time
-    const tg = dir>0 ? Math.ceil(t/STEP)*STEP : Math.floor(t/STEP)*STEP;
-    const rk = (dt)=>{ const a1=acc(r), r2=r.map((x,j)=>x+v[j]*dt/2), v2=v.map((x,j)=>x+a1[j]*dt/2), a2=acc(r2), r3=r.map((x,j)=>x+v2[j]*dt/2), v3=v.map((x,j)=>x+a2[j]*dt/2), a3=acc(r3), r4=r.map((x,j)=>x+v3[j]*dt), v4=v.map((x,j)=>x+a3[j]*dt), a4=acc(r4);
-      r = r.map((x,j)=>x+dt/6*(v[j]+2*v2[j]+2*v3[j]+v4[j])); v = v.map((x,j)=>x+dt/6*(a1[j]+2*a2[j]+2*a3[j]+a4[j])); };
-    rk((tg - t)*DAYS); t = tg;
-    while(t >= 0 && t <= N*STEP){ const i = Math.round(t/STEP), p = P(t); tab[i] = [r[0]-p[0], r[1]-p[1], r[2]-p[2]]; for(let k=0;k<sub;k++) rk(h); t += dir*STEP; }
-  }
-  run(-1); run(1);
-  return tab;
-})();
-function amberFar(tt){ const x = Math.max(0, Math.min(1600*0.5 - 1e-6, tt))/0.5, i = Math.floor(x), f = x - i, a = AMB_TAB[i], b = AMB_TAB[i+1]; return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f]; }
-function amberNear(tt){ const m = amberMiss(), dt = (tt - AMBER_TC)*AMBER_V; return [amberB[0]*m + amberV[0]*dt, amberB[1]*m + amberV[1]*dt, amberB[2]*m + amberV[2]*dt]; }
-// within 3 days of the pass a straight line is exact enough (and carries the Moon Lure offset); beyond 4 days use the orbit
-function amberPosAt(tt){ const g = Math.abs(tt - AMBER_TC); if(g <= 3) return amberNear(tt); if(g >= 4) return amberFar(tt);
-  const w = g - 3, n = amberNear(tt), f = amberFar(tt); return [n[0]+(f[0]-n[0])*w, n[1]+(f[1]-n[1])*w, n[2]+(f[2]-n[2])*w]; }
-function amberPos(t){ const ti = amberImpactT(), tt = amberT(t); return amberPosAt(ti !== null && tt > ti ? ti : tt); }
-function amberState(t){
-  const r = amberPos(t), d = Math.hypot(r[0],r[1],r[2]), u=[r[0]/d,r[1]/d,r[2]/d], S = sunVec(t), cosPhi = -dot(S,u);
-  const ti = amberImpactT();
-  return {r, d, u, cosPhi, frac:(1+cosPhi)/2, shadow:shadowFactor(r,S), impact: ti !== null && amberT(t) >= ti, tImpact: ti};
-}
 // apparent magnitude, scaled from Earth's full Moon (-12.7) at the same apparent size
-const ALBEDO = {black:.25, blue:.9, green:.9, gold:1.4, red:.8, silver:1.8, white:2.5, violet:.75, amber:0.67};
+const ALBEDO = {black:.25, blue:.9, green:.9, gold:1.4, red:.8, silver:1.8, white:2.5, violet:.75};
 // apparent magnitude, scaled from Earth's full Moon (-12.7) at the same apparent size and albedo
 function moonMag(m, s){
-  // sunlight falls off with the body's distance from the sun as well as its distance from Ganthia
   let sunTerm = 0;
-  if(m.key==='amber'){ const S = sunVec(state.t), h = [s.r[0]-S[0]*D_SUN, s.r[1]-S[1]*D_SUN, s.r[2]-S[2]*D_SUN]; sunTerm = 5*Math.log10(Math.hypot(h[0],h[1],h[2])/D_SUN); }
   return -12.7 + 5*Math.log10(s.d/1.78e5) + sunTerm - 2.5*Math.log10(Math.max(0.005, s.frac*s.shadow*(ALBEDO[m.key]||1)));
 }
-function amberMag(s){ return moonMag({key:'amber'}, s); }
 // one brightness scale for stars and moons seen as points
 function pointR(mag){ return Math.max(0.5, Math.min(2.8, 0.45 + (6.5 - mag)*0.13)); }
 
@@ -409,11 +356,9 @@ function computeScene(){
     const s = moonState(m, t), L = eqToLocal(eclToEq(s.u), F);
     bodies.push({m, k, s, L, aa: altAz(L)});
   });
-  { const s = amberState(t), L = eqToLocal(eclToEq(s.u), F); bodies.push({m:AMBER, k:4, s, L, aa:altAz(L), amber:true, hidden:!state.opt.amber || s.impact}); }
   let closest = null;
-  bodies.forEach(b=>{ if(!b.amber && (!closest || b.s.d < closest.s.d)) closest = b; });
-  const ab = bodies.find(b=>b.amber);
-  return {t, F, S, sunL, sunAA, bodies, closest, amberImpact: state.opt.amber && ab.s.impact ? ab.s : null};
+  bodies.forEach(b=>{ if((!closest || b.s.d < closest.s.d)) closest = b; });
+  return {t, F, S, sunL, sunAA, bodies, closest};
 }
 
 // =================== SKY VIEW ===================
@@ -574,7 +519,7 @@ function drawSky(sc){
   if(state.opt.labels){
     ctx.textAlign='left'; ctx.textBaseline='middle';
     for(const {b,p,Rp} of drawn){
-      if(b.amber || b.aa.alt < hill(b.aa.az)) continue;
+      if(b.aa.alt < hill(b.aa.az)) continue;
       const isClosest = b === sc.closest;
       const off = Math.max(Rp, 2, isClosest ? (b.ringR||0) : 0) + 7;
       ctx.font = `${isClosest?'400 16px':'400 14px'} "IM Fell English SC", Georgia, serif`;
@@ -582,48 +527,8 @@ function drawSky(sc){
       ctx.fillStyle = rgba(labelColor(b.m), dayness>.5 ? .95 : .9); ctx.fillText(b.m.name, p.x+off, p.y);
     }
   }
-  drawAmberTag(sc, drawn, dayness);
 }
 
-// Amber Moon tag: always labelled while it is switched on, even when too faint to see, in daylight,
-// below the horizon (tag sits on the horizon) or outside the view (tag pins to the screen edge).
-function drawAmberTag(sc, drawn, dayness){
-  const b = sc.bodies.find(x=>x.amber); if(!b || b.hidden) return;
-  const vis = drawn.find(d=>d.b===b);
-  const below = b.aa.alt < hill(b.aa.az);
-  let L = b.L, note = '';
-  if(below){ const h = hill(b.aa.az)+1.5, ca = Math.cos(h*DEG); L = [Math.sin(b.aa.az*DEG)*ca, Math.cos(b.aa.az*DEG)*ca, Math.sin(h*DEG)]; note = 'below horizon'; }
-  else {
-    // judge visibility by brightness alone, not by whether it is on screen
-    const mg = amberMag(b.s), lim = lerp(6.5, -4.5, dayness), seen = (lim - mg)/3 > 0.02;
-    if(!seen) note = dayness > .5 ? 'in daylight' : 'too faint to see';
-  }
-  const col = AMBER.color;
-  let p = proj(L), edge = false;
-  const m = 26;
-  if(!p || p.x < m || p.y < m || p.x > W-m || p.y > H-m){
-    // pin to the screen edge in the moon's direction
-    const dx = dot(L,cam.right), dy = -dot(L,cam.up), len = Math.hypot(dx,dy) || 1, ux = dx/len, uy = dy/len;
-    const sx = (W/2 - m)/Math.max(1e-6, Math.abs(ux)), sy = (H/2 - m)/Math.max(1e-6, Math.abs(uy)), s = Math.min(sx, sy);
-    p = {x: W/2 + ux*s, y: H/2 + uy*s}; edge = true;
-    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(Math.atan2(uy,ux)); ctx.fillStyle = rgba(col,.9);
-    ctx.beginPath(); ctx.moveTo(10,0); ctx.lineTo(-4,-6); ctx.lineTo(-4,6); ctx.closePath(); ctx.fill(); ctx.restore();
-  } else if(!vis){
-    ctx.save(); ctx.strokeStyle = rgba(col,.75); ctx.lineWidth = 1; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.arc(p.x,p.y,6,0,Math.PI*2); ctx.stroke(); ctx.restore();
-  }
-  const off = vis ? Math.max(vis.Rp, 2) + 7 : 10;
-  const text = `Amber${note ? ' · ' + note : ''}${b.s.d < 1e7 ? '' : ' · ' + fmtDist(b.s.d)}`;
-  ctx.font = '400 14px "IM Fell English SC", Georgia, serif'; ctx.textBaseline = 'middle';
-  const tw = ctx.measureText(text).width;
-  let tx = p.x + off, ty = p.y;
-  let rightLim = W - 8;
-  if(!roster.hidden && window.innerWidth > 760){ const rr = roster.getBoundingClientRect(), ar = app.getBoundingClientRect(); if(ty > rr.top - ar.top - 10 && ty < rr.bottom - ar.top + 10) rightLim = rr.left - ar.left - 8; }
-  if(tx + tw > rightLim) tx = p.x - off - tw;
-  if(edge){ ty = Math.max(16, Math.min(H-16, ty + (p.y > H/2 ? -14 : 14))); }
-  ctx.textAlign = 'left';
-  ctx.fillStyle = 'rgba(5,7,13,0.65)'; ctx.fillText(text, tx+1, ty+1);
-  ctx.fillStyle = rgba(col, .95); ctx.fillText(text, tx, ty);
-}
 
 // =================== ORRERY VIEW ===================
 // World units: millions of km, ecliptic frame (x, y in the planet's orbital plane, z toward ecliptic north).
@@ -643,7 +548,6 @@ function oproj(p){
   return {x: ocam.cx + dot(v,ocam.right)*s, y: ocam.cy - dot(v,ocam.up)*s, s, z};
 }
 const orbitPaths = MOONS.map(m=>{ const pts=[]; for(let i=0;i<=240;i++){ const r = orbitPos(m, m.tp, m.tp + YEAR*i/240); pts.push([r[0]/U, r[1]/U, r[2]/U]); } return pts; });
-function amberPath(){ const pts=[], ti = amberImpactT(); for(let t=397;t<=403;t+=0.02){ if(ti!==null && t>ti) break; const r=amberPosAt(t); pts.push([r[0]/U,r[1]/U,r[2]/U]); } return pts; }
 function polyline3(pts, style, width, dash){
   ctx.strokeStyle = style; ctx.lineWidth = width; ctx.setLineDash(dash||[]);
   ctx.beginPath(); let pen=false;
@@ -685,7 +589,6 @@ function drawOrrery(sc){
     polyline3(orbitPaths[k], rgba(labelColor(m), isClosest ? .8 : .35), isClosest ? 1.6 : 1);
     const pp = oproj([m.P[0]*PERI_KM/U, m.P[1]*PERI_KM/U, 0]); if(pp){ ctx.fillStyle = rgba(labelColor(m), .7); ctx.fillRect(pp.x-1.5,pp.y-1.5,3,3); }
   });
-  if(state.opt.amber) polyline3(amberPath(), rgba(AMBER.color,.45), 1, [4,4]);
   if(state.opt.bronze){ for(const f of debris){ const q=oproj([f.r[0]/U,f.r[1]/U,f.r[2]/U]); if(!q) continue; ctx.fillStyle=`rgba(214,160,92,${.35*f.b})`; ctx.fillRect(q.x,q.y,1.2,1.2); } }
   // drawables sorted by depth: moons, planet, sun
   const items = [];
@@ -821,7 +724,6 @@ function drawMap(sc){
   }
   // sub-solar point
   { const s = m2s(sub.lat, sub.lon); ctx.fillStyle='#fff3c4'; ctx.beginPath(); ctx.arc(s.x,s.y,5,0,Math.PI*2); ctx.fill(); ctx.strokeStyle='rgba(255,243,196,.5)'; for(let i=0;i<8;i++){ const a=i*Math.PI/4; ctx.beginPath(); ctx.moveTo(s.x+Math.cos(a)*7,s.y+Math.sin(a)*7); ctx.lineTo(s.x+Math.cos(a)*10,s.y+Math.sin(a)*10); ctx.stroke(); } }
-  if(sc.amberImpact){ const st = impactSite(sc.amberImpact), q = m2s(st.lat, st.lon); drawImpactMark(q.x, q.y); }
   // Dirole and observer
   const dr = m2s(DIROLE_LAT, 0);
   ctx.fillStyle = '#d6b26a'; ctx.strokeStyle='#05070d'; ctx.lineWidth=1.5;
@@ -944,7 +846,6 @@ function drawGlobe(sc){
   }
   // sub-solar point
   { const s = gproj(sv); if(s.z > 0){ ctx.fillStyle='#fff3c4'; ctx.beginPath(); ctx.arc(s.x,s.y,5,0,Math.PI*2); ctx.fill(); ctx.strokeStyle='rgba(255,243,196,.6)'; ctx.lineWidth=1; for(let i=0;i<8;i++){ const a=i*Math.PI/4; ctx.beginPath(); ctx.moveTo(s.x+Math.cos(a)*7,s.y+Math.sin(a)*7); ctx.lineTo(s.x+Math.cos(a)*10,s.y+Math.sin(a)*10); ctx.stroke(); } } }
-  if(sc.amberImpact){ const st = impactSite(sc.amberImpact), q = gproj(llVec(st.lat, st.lon)); if(q.z > 0) drawImpactMark(q.x, q.y); }
   // Dirole and observer
   const dq = gproj(llVec(DIROLE_LAT, 0));
   if(dq.z > 0){
@@ -959,19 +860,6 @@ function drawGlobe(sc){
   ctx.fillText(cap, cx, Math.min(lay.bottom + 10, cy + R + 14));
 }
 
-// ---------- Amber impact ----------
-function impactSite(s){ const ti = s.tImpact, r = amberPosAt(ti), d = Math.hypot(r[0],r[1],r[2]); return subPoint(eclToEq([r[0]/d,r[1]/d,r[2]/d]), ti); }
-function drawImpact(sc){
-  const s = sc.amberImpact, since = amberT(sc.t) - s.tImpact;
-  if(state.view==='sky' && since < 2){ ctx.fillStyle = `rgba(255,110,40,${0.45*Math.max(0,1-since/2)})`; ctx.fillRect(0,0,W,H); }
-  const site = impactSite(s), dp = dateParts(s.tImpact % YEAR);
-  const msg = `The Amber Moon strikes Ganthia · ${ordinal(dp.day)} of ${MOONS[dp.mi].month}, ${clock(s.tImpact)} · ${Math.abs(site.lat).toFixed(0)}°${site.lat>=0?'N':'S'}, ${Math.abs(site.lon).toFixed(0)}°${site.lon>=0?'E':'W'} of Dirole`;
-  ctx.font = '400 17px "IM Fell English SC", Georgia, serif'; const tw = ctx.measureText(msg).width;
-  const x = W/2, y = 22; ctx.fillStyle = 'rgba(40,8,4,0.85)'; ctx.fillRect(x - tw/2 - 14, y - 4, tw + 28, 30);
-  ctx.strokeStyle = 'rgba(255,140,70,0.8)'; ctx.strokeRect(x - tw/2 - 14 + .5, y - 4 + .5, tw + 27, 29);
-  ctx.fillStyle = '#ffd2b0'; ctx.textAlign='center'; ctx.textBaseline='top'; ctx.fillText(msg, x, y + 2);
-}
-function drawImpactMark(px, py){ ctx.strokeStyle = '#ff7a3c'; ctx.lineWidth = 2.5; for(let i=0;i<4;i++){ const a=i*Math.PI/4; ctx.beginPath(); ctx.moveTo(px-Math.cos(a)*9, py-Math.sin(a)*9); ctx.lineTo(px+Math.cos(a)*9, py+Math.sin(a)*9); ctx.stroke(); } ctx.font='400 14px "IM Fell English SC", Georgia, serif'; ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillStyle='#ffb48a'; ctx.fillText('Impact', px+12, py+12); }
 
 // ---------- insets ----------
 function drawMini(sc){
@@ -1020,7 +908,7 @@ function latStr(v){ return v===0 ? '0°' : `${Math.abs(v)}°${v>0?'N':'S'}`; }
 function fmtDist(d){ return d >= 1e7 ? `${(d/1e6).toFixed(0)}M km` : d >= 1e6 ? `${(d/1e6).toFixed(2)}M km` : `${Math.round(d/1e3)}k km`; }
 
 const roster = $('roster'), listEl = $('moonList'); const rows = [];
-[...MOONS.filter(m=>m.present), AMBER].forEach(m=>{
+[...MOONS.filter(m=>m.present)].forEach(m=>{
   const li = document.createElement('li'), btn = document.createElement('button');
   btn.type='button';
   const cv = document.createElement('canvas'); cv.width=52; cv.height=52;
@@ -1028,7 +916,7 @@ const roster = $('roster'), listEl = $('moonList'); const rows = [];
   mid.innerHTML = `<div class="mname">${m.name} Moon<span class="tags"></span></div><div class="mmeta">${m.school} · ${m.month}</div>`;
   const num = document.createElement('div'); num.className='mnum';
   btn.append(cv, mid, num); li.append(btn); listEl.append(li);
-  btn.addEventListener('click', ()=>{ if(m===AMBER && !state.opt.amber){ state.opt.amber = true; $('optAmber').checked = true; syncLure(); } aimAt(m.key); });
+  btn.addEventListener('click', ()=>{ aimAt(m.key); });
   rows.push({m, li, cv, tags: mid.querySelector('.tags'), num, btn});
 });
 function drawPhaseIcon(cv, m, cosPhi, shadow){
@@ -1052,11 +940,11 @@ function updateText(sc){
     drawPhaseIcon(r.cv, r.m, b.s.cosPhi, b.s.shadow);
     let tags = '';
     if(sc.closest === b) tags += '<span class="tag">closest</span>';
-    if(b.s.shadow < .97 && !(b.amber && b.s.impact)) tags += '<span class="tag ecl">eclipse</span>';
+    if(b.s.shadow < .97) tags += '<span class="tag ecl">eclipse</span>';
     if(r.tags.innerHTML !== tags) r.tags.innerHTML = tags;
     r.li.classList.toggle('off', !!b.hidden);
     const up = b.aa.alt > hill(b.aa.az);
-    const third = (b.amber && b.s.impact) ? '<span class="down">impact</span>' : b.hidden ? '<span class="down">hidden</span>' : up ? Math.round(b.aa.alt)+'° up' : '<span class="down">below</span>';
+    const third = b.hidden ? '<span class="down">hidden</span>' : up ? Math.round(b.aa.alt)+'° up' : '<span class="down">below</span>';
     r.num.innerHTML = `${Math.round(b.s.frac*100)}% lit<br>${fmtDist(b.s.d)}<br>${third}`;
     r.btn.setAttribute('aria-label', `${r.m.name} Moon, ${Math.round(b.s.frac*100)} percent lit, ${b.hidden ? 'hidden; select to show' : up?'altitude '+Math.round(b.aa.alt)+' degrees':'below the horizon'}. Look at it.`);
   }
@@ -1106,14 +994,7 @@ $('day').addEventListener('input', e=>{ const d = +e.target.value - 1, h = state
 $('hour').addEventListener('input', e=>{ const h = +e.target.value % 24; state.fixedHour = h; state.t = Math.floor(state.t) + h/24; lastTextT = -1; requestDraw(); });
 $('lat').addEventListener('input', e=>{ state.lat = +e.target.value; $('latOut').textContent = latStr(state.lat); requestDraw(); });
 document.querySelectorAll('[data-size]').forEach(b=>b.addEventListener('click', ()=>{ state.size = b.dataset.size; document.querySelectorAll('[data-size]').forEach(x=>x.setAttribute('aria-pressed', x===b)); requestDraw(); }));
-[['optLabels','labels'],['optSun','sun'],['optGrid','grid'],['optBronze','bronze'],['optAmber','amber']].forEach(([id,k])=>$(id).addEventListener('change', e=>{ state.opt[k] = e.target.checked; syncLure(); requestDraw(); }));
-function syncLure(){
-  $('lureCtl').hidden = !state.opt.amber;
-  const m = amberMiss(), L = state.lure;
-  $('lureOut').textContent = L >= 30 ? `${L} · impact` : `${L} · misses by ${m >= 1e4 ? Math.round(m/1e3)+'k' : Math.round(m)} km`;
-}
-$('lure').addEventListener('input', e=>{ state.lure = +e.target.value; syncLure(); requestDraw(); });
-syncLure();
+[['optLabels','labels'],['optSun','sun'],['optGrid','grid'],['optBronze','bronze']].forEach(([id,k])=>$(id).addEventListener('change', e=>{ state.opt[k] = e.target.checked; requestDraw(); }));
 $('mapShift').addEventListener('input', e=>{ state.mapShift = +e.target.value; $('mapShiftOut').textContent = `${state.mapShift}°`; requestDraw(); });
 $('mapFile').addEventListener('change', e=>{
   const f = e.target.files && e.target.files[0]; if(!f) return;
@@ -1126,11 +1007,9 @@ function orbMinDist(){ return state.orbScale === 'accurate' ? 0.03 : 1.2; }
 document.querySelectorAll('[data-orbscale]').forEach(b=>b.addEventListener('click', ()=>{ state.orbScale = b.dataset.orbscale; document.querySelectorAll('[data-orbscale]').forEach(x=>x.setAttribute('aria-pressed', x===b)); state.orb.dist = Math.max(orbMinDist(), state.orb.dist); requestDraw(); }));
 const jump = $('jump');
 MOONS.forEach((m,k)=>{ if(!m.present) return; const o=document.createElement('option'); o.value=k; o.textContent=`${m.name}: midnight, 23rd of ${m.month}`; jump.append(o); });
-{ const o=document.createElement('option'); o.value='amber'; o.textContent='Amber: 2 PM, 40th of Violetmoon (overhead Dirole about 4 PM)'; jump.append(o); }
 jump.addEventListener('change', ()=>{
   if(jump.value==='') return;
-  if(jump.value==='amber'){ state.opt.amber = true; $('optAmber').checked = true; syncLure(); state.year = 9179; state.t = 399.5833; state.dayAcc = 399; state.fixedHour = 14; aimAt('amber'); }
-  else { const k = +jump.value; state.t = 40*k + 22; state.dayAcc = 40*k + 22; state.fixedHour = 0; if(state.view==='map') state.mapFocus = null; aimAt(MOONS[k].key); }
+  { const k = +jump.value; state.t = 40*k + 22; state.dayAcc = 40*k + 22; state.fixedHour = 0; if(state.view==='map') state.mapFocus = null; aimAt(MOONS[k].key); }
   jump.value=''; requestDraw();
 });
 const rosterBtn = $('rosterToggle');
@@ -1188,7 +1067,6 @@ function draw(){
   const sc = computeScene(); lastScene = sc;
   ctx.setTransform(DPR,0,0,DPR,0,0);
   if(state.view==='sky') drawSky(sc); else if(state.view==='orrery') drawOrrery(sc); else if(state.mapMode==='globe') drawGlobe(sc); else drawMap(sc);
-  if(sc.amberImpact) drawImpact(sc);
   if(state.view!=='map') drawMini(sc);
   updateText(sc);
 }
