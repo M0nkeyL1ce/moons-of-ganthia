@@ -9,23 +9,26 @@ Source between `@dm` markers is DM only: `/*@dm*/ … /*@end*/` in JS and CSS, `
 and `/*@dm*/ dm text /*@else*/ player text /*@end*/` to swap a value (the lost fifth moon is "Fifth" for players).
 The player edition has that code removed, not hidden; `build.py` refuses to write it if an Amber word is left.
 
-- Players: https://m0nkeyl1ce.github.io/moons-of-ganthia/ (`index.html`), and Cloudflare (below; `site/index.html`).
+- Players: https://moons.dragonlampart.com (`site/index.html`, deployed by Cloudflare).
 - DM: `dm/index.html` on this machine, or the private Claude artifact (`dm/moons-of-ganthia.html`). `dm/` is gitignored.
 
 ## Deploying (Cloudflare)
-Like DiceGame, Cloudflare is connected to this GitHub repo and redeploys on every push to `main`.
+The only site is the Cloudflare Worker `moons-of-ganthia`, at https://moons.dragonlampart.com
+(also https://moons-of-ganthia.conley-ade.workers.dev). GitHub Pages is off.
+Like DiceGame, Cloudflare is connected to this GitHub repo and redeploys on every push to `main`;
+every other branch and pull request gets a preview address.
 `wrangler.jsonc` deploys static assets from `site/` only, so `src/` (which holds the DM-only code) is never served.
-One-time setup in the Cloudflare dashboard: Workers & Pages → Create → Import a repository → `moons-of-ganthia`;
-build command empty, deploy command `npx wrangler deploy`. Add a custom domain under the Worker's Settings → Domains & Routes.
-To update the site: `python3 build.py`, commit `index.html` and `site/index.html`, push.
+Cloudflare settings: no build command, deploy command `npx wrangler deploy`; the domain is under the Worker's Domains tab.
+To update the site: `python3 build.py`, commit `site/index.html`, push.
 
 ## Layout
-- `index.html` — the player edition as a full HTML document; open it in any browser (needs no server) or put it on any static web host. GitHub Pages serves it.
+- `site/index.html` — the player edition as a full HTML document; the deployed site. It also opens in any browser with no server.
+- `wrangler.jsonc` — the Cloudflare deploy: static assets from `site/` only.
 - `dm/` — the DM edition: `index.html` (full document) and `moons-of-ganthia.html` (the fragment published as the Claude artifact).
 - `src/core.js` — pure orbital math (no DOM). Works in a browser or Node (`require('./src/core.js')`).
 - `src/app.js` — Amber Moon orbit, ley lines, brightness, the three views, controls.
 - `src/head.html`, `src/body.html` — styles and markup.
-- `build.py` — rebuilds both editions: `python3 build.py`. Commit the rebuilt `index.html` to update the site.
+- `build.py` — rebuilds both editions: `python3 build.py`. Commit the rebuilt `site/index.html` to update the site.
 - `tools/` — Node scripts used to tune and verify the model (run from this folder):
   - `node tools/check.js` — Dirole crossing distance and times, phase range and eclipse length per moon.
   - `node tools/tune2.js <perigee_km> <moon_index> <tilt_min> <tilt_max>` — coarse search for tilts whose ley line crosses Dirole (Black = 0, Red = 5).
