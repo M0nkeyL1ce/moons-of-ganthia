@@ -18,8 +18,8 @@ function speedLabel(mode){ const v = speedVal(mode);
 // the direction of the equator from a latitude: south in the northern hemisphere, north in the southern
 function equatorYaw(lat){ return (lat < 0 ? 0 : 180)*DEG; }
 const state = {
-  // opens facing the equator (south, from Dirole), 120° across: the binocular field of the naked eye
-  view:'sky', t: 102.0, lat: DIROLE_LAT, yaw: equatorYaw(DIROLE_LAT), pitch: 28*DEG, fov: 120*DEG,
+  // opens facing the equator (south, from Dirole), 45° across: about what an eye fixed on one thing sees clearly
+  view:'sky', t: 102.0, lat: DIROLE_LAT, yaw: equatorYaw(DIROLE_LAT), pitch: 8*DEG, fov: 45*DEG,
   mode: 'year', playing: !reduceMotion, speedX: {night:43, year:58}, reverse: false,
   size: 'true', fixedHour: 0, dayAcc: 102,
   orb: {az: -60*DEG, el: 28*DEG, dist: 11},
@@ -814,6 +814,7 @@ function updateText(sc){
 }
 function syncSliders(){
   const dp = dateParts(state.t);
+  if(document.activeElement !== $('year')){ $('year').value = state.year; }
   if(document.activeElement !== $('month')){ $('month').value = dp.mi + 1; }
   if(document.activeElement !== $('day')){ $('day').value = dp.day; }
   $('monthOut').textContent = MOONS[dp.mi].month;
@@ -876,6 +877,9 @@ document.querySelectorAll('[data-view]').forEach(b=>{ if(b.tagName!=='BUTTON') r
 // the date is set as a month (1-10) and a day of that month (1-40)
 function setDate(mi, day){ const d = mi*40 + day - 1, h = state.mode==='year' ? state.fixedHour/24 : state.t - Math.floor(state.t); state.t = d + h; state.dayAcc = d; lastTextT = -1; requestDraw(); }
 $('month').addEventListener('input', e=>setDate(+e.target.value - 1, dateParts(state.t).day));
+// the year field follows the clock as it plays; typing a whole number sets the year
+$('year').addEventListener('input', e=>{ const v = e.target.value.trim(), y = Number(v); if(v === '' || !Number.isInteger(y)) return; state.year = y; lastTextT = -1; requestDraw(); });
+$('year').addEventListener('change', e=>{ e.target.value = state.year; });
 $('day').addEventListener('input', e=>setDate(dateParts(state.t).mi, +e.target.value));
 $('hour').addEventListener('input', e=>{ const h = +e.target.value % 24; state.fixedHour = h; state.t = Math.floor(state.t) + h/24; lastTextT = -1; requestDraw(); });
 // crossing the equator turns the view to face it from the new hemisphere
@@ -904,9 +908,10 @@ MOONS.forEach((m,k)=>{ if(!m.present) return; const o=document.createElement('op
 /*@dm*/{ const o=document.createElement('option'); o.value='amber'; o.textContent='Amber: 2 PM, 40th of Violetmoon (overhead Dirole about 4 PM)'; jump.append(o); }
 /*@end*/jump.addEventListener('change', ()=>{
   if(jump.value==='') return;
+  setPlaying(false);   // land on the moment; at night-by-night speed it would be gone within a second
   /*@dm*/if(jump.value==='amber'){ state.opt.amber = true; $('optAmber').checked = true; syncLure(); state.year = 9179; state.t = 399.5833; state.dayAcc = 399; state.fixedHour = 14; aimAt('amber'); }
   else /*@end*/{ const k = +jump.value; state.t = 40*k + 22; state.dayAcc = 40*k + 22; state.fixedHour = 0; if(state.view==='map') state.mapFocus = null; aimAt(MOONS[k].key); }
-  jump.value=''; requestDraw();
+  jump.value=''; lastTextT = -1; requestDraw();
 });
 const rosterBtn = $('rosterToggle');
 rosterBtn.addEventListener('click', ()=>{ roster.hidden = !roster.hidden; rosterBtn.setAttribute('aria-expanded', !roster.hidden); rosterBtn.setAttribute('aria-pressed', !roster.hidden); layout(); });
@@ -958,7 +963,15 @@ function layout(){
   const narrow = window.innerWidth <= 760;
   if(narrow){ roster.style.top = (plaque.bottom - appR.top + 8) + 'px'; roster.style.maxHeight = Math.max(120, dock.top - plaque.bottom - 16) + 'px'; }
   else { roster.style.top = ''; roster.style.maxHeight = Math.max(160, (state.view==='map' ? dock.top - appR.top - 14 : miniTop) - 24) + 'px'; }
+  if(firstLayout){ firstLayout = false; state.pitch = horizonPitch(dock.top - appR.top); }
   requestDraw();
+}
+// the opening tilt puts the horizon four-fifths of the way down the sky left above the controls,
+// so the narrow 45° view shows the ground on any screen shape
+let firstLayout = true;
+function horizonPitch(skyBottom){
+  const k = (W/2)/Math.tan(state.fov/4), off = 0.8*skyBottom - H/2;
+  return Math.max(-8*DEG, Math.min(60*DEG, 2*Math.atan(off/k)));
 }
 function draw(){
   const sc = computeScene(); trackFollow(sc); lastScene = sc;

@@ -70,6 +70,7 @@ body{background:var(--sky);color:var(--ink);font-family:var(--font-body);font-si
 .slider input{width:150px;accent-color:var(--brass)}
 .slider output{font-family:var(--font-mono);font-size:12px;min-width:52px;font-variant-numeric:tabular-nums;color:var(--brass)}
 select{font-family:var(--font-body);font-size:13px;background:#12131f;color:var(--ink);border:1px solid var(--line);border-radius:2px;padding:4px 6px}
+.slider input#year{width:72px;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums;background:#12131f;color:var(--brass);border:1px solid var(--line);border-radius:2px;padding:3px 6px}
 .chk{display:inline-flex;align-items:center;gap:5px;font-size:13px;cursor:pointer}
 .chk input{accent-color:var(--brass)}
 #mini{position:absolute;right:max(16px, env(safe-area-inset-right,0px));width:150px;height:150px;cursor:crosshair}
@@ -133,6 +134,7 @@ select{font-family:var(--font-body);font-size:13px;background:#12131f;color:var(
         <button class="btn" id="rosterToggle" type="button" aria-expanded="false">Moons</button>
       </div>
       <div class="group">
+        <label class="slider"><span class="lbl">Year</span><input id="year" type="number" step="1" value="9179" inputmode="numeric" aria-label="Year (CR)"></label>
         <label class="slider"><span class="lbl">Month</span><input id="month" type="range" min="1" max="10" step="1" value="3"><output id="monthOut" style="min-width:84px">Greenmoon</output></label>
         <label class="slider"><span class="lbl">Day</span><input id="day" type="range" min="1" max="40" step="1" value="23"><output id="dayOut" style="min-width:36px">23rd</output></label>
         <label class="slider"><span class="lbl">Hour</span><input id="hour" type="range" min="0" max="24" step="0.25" value="0"><output id="hourOut">0:00</output></label>
@@ -250,8 +252,8 @@ function speedLabel(mode){ const v = speedVal(mode);
 // the direction of the equator from a latitude: south in the northern hemisphere, north in the southern
 function equatorYaw(lat){ return (lat < 0 ? 0 : 180)*DEG; }
 const state = {
-  // opens facing the equator (south, from Dirole), 120° across: the binocular field of the naked eye
-  view:'sky', t: 102.0, lat: DIROLE_LAT, yaw: equatorYaw(DIROLE_LAT), pitch: 28*DEG, fov: 120*DEG,
+  // opens facing the equator (south, from Dirole), 45° across: about what an eye fixed on one thing sees clearly
+  view:'sky', t: 102.0, lat: DIROLE_LAT, yaw: equatorYaw(DIROLE_LAT), pitch: 8*DEG, fov: 45*DEG,
   mode: 'year', playing: !reduceMotion, speedX: {night:43, year:58}, reverse: false,
   size: 'true', fixedHour: 0, dayAcc: 102,
   orb: {az: -60*DEG, el: 28*DEG, dist: 11},
@@ -937,6 +939,7 @@ function updateText(sc){
 }
 function syncSliders(){
   const dp = dateParts(state.t);
+  if(document.activeElement !== $('year')){ $('year').value = state.year; }
   if(document.activeElement !== $('month')){ $('month').value = dp.mi + 1; }
   if(document.activeElement !== $('day')){ $('day').value = dp.day; }
   $('monthOut').textContent = MOONS[dp.mi].month;
@@ -999,6 +1002,9 @@ document.querySelectorAll('[data-view]').forEach(b=>{ if(b.tagName!=='BUTTON') r
 // the date is set as a month (1-10) and a day of that month (1-40)
 function setDate(mi, day){ const d = mi*40 + day - 1, h = state.mode==='year' ? state.fixedHour/24 : state.t - Math.floor(state.t); state.t = d + h; state.dayAcc = d; lastTextT = -1; requestDraw(); }
 $('month').addEventListener('input', e=>setDate(+e.target.value - 1, dateParts(state.t).day));
+// the year field follows the clock as it plays; typing a whole number sets the year
+$('year').addEventListener('input', e=>{ const v = e.target.value.trim(), y = Number(v); if(v === '' || !Number.isInteger(y)) return; state.year = y; lastTextT = -1; requestDraw(); });
+$('year').addEventListener('change', e=>{ e.target.value = state.year; });
 $('day').addEventListener('input', e=>setDate(dateParts(state.t).mi, +e.target.value));
 $('hour').addEventListener('input', e=>{ const h = +e.target.value % 24; state.fixedHour = h; state.t = Math.floor(state.t) + h/24; lastTextT = -1; requestDraw(); });
 // crossing the equator turns the view to face it from the new hemisphere
@@ -1019,8 +1025,9 @@ const jump = $('jump');
 MOONS.forEach((m,k)=>{ if(!m.present) return; const o=document.createElement('option'); o.value=k; o.textContent=`${m.name}: midnight, 23rd of ${m.month}`; jump.append(o); });
 jump.addEventListener('change', ()=>{
   if(jump.value==='') return;
+  setPlaying(false);   // land on the moment; at night-by-night speed it would be gone within a second
   { const k = +jump.value; state.t = 40*k + 22; state.dayAcc = 40*k + 22; state.fixedHour = 0; if(state.view==='map') state.mapFocus = null; aimAt(MOONS[k].key); }
-  jump.value=''; requestDraw();
+  jump.value=''; lastTextT = -1; requestDraw();
 });
 const rosterBtn = $('rosterToggle');
 rosterBtn.addEventListener('click', ()=>{ roster.hidden = !roster.hidden; rosterBtn.setAttribute('aria-expanded', !roster.hidden); rosterBtn.setAttribute('aria-pressed', !roster.hidden); layout(); });
@@ -1072,7 +1079,15 @@ function layout(){
   const narrow = window.innerWidth <= 760;
   if(narrow){ roster.style.top = (plaque.bottom - appR.top + 8) + 'px'; roster.style.maxHeight = Math.max(120, dock.top - plaque.bottom - 16) + 'px'; }
   else { roster.style.top = ''; roster.style.maxHeight = Math.max(160, (state.view==='map' ? dock.top - appR.top - 14 : miniTop) - 24) + 'px'; }
+  if(firstLayout){ firstLayout = false; state.pitch = horizonPitch(dock.top - appR.top); }
   requestDraw();
+}
+// the opening tilt puts the horizon four-fifths of the way down the sky left above the controls,
+// so the narrow 45° view shows the ground on any screen shape
+let firstLayout = true;
+function horizonPitch(skyBottom){
+  const k = (W/2)/Math.tan(state.fov/4), off = 0.8*skyBottom - H/2;
+  return Math.max(-8*DEG, Math.min(60*DEG, 2*Math.atan(off/k)));
 }
 function draw(){
   const sc = computeScene(); trackFollow(sc); lastScene = sc;
