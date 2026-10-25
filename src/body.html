@@ -43,6 +43,8 @@
           <button class="btn" data-size="true" type="button" aria-pressed="true">True</button>
           <button class="btn" data-size="story" type="button" aria-pressed="false">Storybook</button>
         </div>
+        <label class="slider sky-only" title="How much sky the view shows across (scroll or pinch to change it too)"><span class="lbl">View</span><input id="fov" type="range" min="6" max="160" step="1" value="30"><output id="fovOut" style="min-width:36px">30°</output></label>
+        <button class="btn sky-only" id="fovLife" type="button" title="Show the sky as wide as your screen is in your eyes, so the moons look as big as they would outdoors">Life size</button>
         <span class="lbl orrery-only">Scale</span>
         <div class="seg orrery-only" role="group" aria-label="Orrery scale">
           <button class="btn" data-orbscale="enlarged" type="button" aria-pressed="true">Enlarged</button>
