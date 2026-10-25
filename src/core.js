@@ -46,20 +46,38 @@ function eqToLocal(v, F){
   return [f1, -F.sp*f0 + F.cp*f2, F.cp*f0 + F.sp*f2];
 }
 function altAz(L){ return {alt:Math.asin(Math.max(-1,Math.min(1,L[2])))/DEG, az:((Math.atan2(L[0],L[1])/DEG)+360)%360}; }
-// shadow factor 0..1 (1 = fully lit by sun)
-function shadowFactor(rvec, S){
-  const d=Math.hypot(rvec[0],rvec[1],rvec[2]); const u=[rvec[0]/d,rvec[1]/d,rvec[2]/d];
-  const sep=Math.acos(Math.max(-1,Math.min(1,-dot(u,S))));
-  const um=(R_PLANET - d*(R_SUN-R_PLANET)/D_SUN)/d, pen=(R_PLANET + d*(R_SUN+R_PLANET)/D_SUN)/d, mr=MOON_R/d;
-  if(sep >= pen+mr) return 1;
-  if(um>0 && sep <= um-mr) return 0;
-  const lo = Math.max(0, um), x=(sep - lo)/((pen+mr)-lo);
-  return Math.max(0,Math.min(1,x));
+// area two discs of radii r1, r2 share when their centers are d apart (small angles, so flat)
+function discOverlap(r1, r2, d){
+  if(d >= r1 + r2) return 0;
+  if(d <= Math.abs(r1 - r2)) return Math.PI*Math.min(r1, r2)**2;
+  const a = Math.acos(Math.max(-1, Math.min(1, (d*d + r1*r1 - r2*r2)/(2*d*r1)))), b = Math.acos(Math.max(-1, Math.min(1, (d*d + r2*r2 - r1*r1)/(2*d*r2))));
+  return r1*r1*a + r2*r2*b - 0.5*Math.sqrt(Math.max(0, (-d + r1 + r2)*(d + r1 - r2)*(d - r1 + r2)*(d + r1 + r2)));
 }
+// 19 points spread evenly over a disc of radius 1 (center, then rings holding equal areas)
+const DISC_SAMPLES = [[0,0], ...[...Array(6)].map((_,i)=>[0.459*Math.cos(i*Math.PI/3), 0.459*Math.sin(i*Math.PI/3)]),
+  ...[...Array(12)].map((_,i)=>[0.827*Math.cos((i+.5)*Math.PI/6), 0.827*Math.sin((i+.5)*Math.PI/6)])];
+// shadow factor 0..1 (1 = fully lit): the share of the sun's disc the planet leaves uncovered, seen from
+// points across the moon's face and averaged. Behind the end of the umbra (1.39M km) the planet can no
+// longer cover the whole sun, so a moon there dims only a little (about 10% at 4.4M km).
+function shadowFactor(rvec, S, bodyR=MOON_R, planetR=R_PLANET, sunR=R_SUN, sunD=D_SUN){
+  const z = -dot(rvec, S); if(z <= 0) return 1;                     // distance behind the planet along the shadow's axis
+  const x0 = Math.hypot(rvec[0] + S[0]*z, rvec[1] + S[1]*z, rvec[2] + S[2]*z);   // and off the axis
+  if(x0 >= planetR + z*(sunR + planetR)/sunD + bodyR) return 1;    // clear of the penumbra
+  const rs = sunR/(sunD + z), rp = planetR/z, sun = Math.PI*rs*rs;
+  let lit = 0;
+  for(const [a, b] of DISC_SAMPLES){ const x = Math.hypot(x0 + a*bodyR, b*bodyR); lit += 1 - discOverlap(rs, rp, x/z + x/(sunD + z))/sun; }
+  return Math.max(0, Math.min(1, lit/DISC_SAMPLES.length));
+}
+// An eclipse a person could notice: Espenak finds penumbral shading visible to the eye only once two-thirds
+// of the Moon's disc is inside the penumbra. ECLIPSE_SEEN is how much light Earth's Moon keeps at that point,
+// by the same model; a moon dimmer than that is shown as in eclipse.
+const ECLIPSE_SEEN = (()=>{ const R_E = 6371, D_M = 384400, R_M = 1737, R_S = 696000, D_S = 1.496e8;
+  const pen = R_E + D_M*(R_S + R_E)/D_S;
+  return shadowFactor([-D_M, pen + R_M - (2/3)*(2*R_M), 0], [1,0,0], R_M, R_E, R_S, D_S); })();
 function moonState(m, t){
   const r = orbitPos(m, m.tp, t), d=Math.hypot(r[0],r[1],r[2]), S=sunVec(t);
   const u=[r[0]/d,r[1]/d,r[2]/d], cosPhi = -dot(S,u);
   return {r, d, u, cosPhi, frac:(1+cosPhi)/2, shadow:shadowFactor(r,S)};
 }
 const UMBRA_LEN = R_PLANET*D_SUN/(R_SUN-R_PLANET);
-if (typeof module!=='undefined') module.exports={PASS_DAY,PERI_KM,makeOrbit,sunLon,MOONS,moonState,sunVec,eclToEq,frame,eqToLocal,altAz,YEAR,ECC,A_KM,orbitPos,DEG};
+if (typeof module!=='undefined') module.exports={ECLIPSE_SEEN,shadowFactor,PASS_DAY,PERI_KM,makeOrbit,sunLon,MOONS,moonState,sunVec,eclToEq,frame,eqToLocal,altAz,YEAR,ECC,A_KM,orbitPos,DEG};

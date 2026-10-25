@@ -844,7 +844,7 @@ function updateText(sc){
     drawPhaseIcon(r.cv, r.m, b.s.cosPhi, b.s.shadow);
     let tags = '';
     if(sc.closest === b) tags += '<span class="tag">closest</span>';
-    if(b.s.shadow < .97/*@dm*/ && !(b.amber && b.s.impact)/*@end*/) tags += '<span class="tag ecl">eclipse</span>';
+    if(b.s.shadow < ECLIPSE_SEEN/*@dm*/ && !(b.amber && b.s.impact)/*@end*/) tags += '<span class="tag ecl">eclipse</span>';
     if(r.tags.innerHTML !== tags) r.tags.innerHTML = tags;
     r.li.classList.toggle('off', !!b.hidden);
     const up = b.aa.alt > hill(b.aa.az);
