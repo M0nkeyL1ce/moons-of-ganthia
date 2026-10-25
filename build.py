@@ -2,7 +2,7 @@
 
 Source between @dm markers is for the DM only (the Amber Moon and its 9179 pass):
   /*@dm*/ ... /*@end*/  in JS and CSS,  <!--@dm--> ... <!--@end-->  in HTML,
-  /*@dm*/ dm text /*@else*/ player text /*@end*/  to swap a value.
+  /*@dm*/ dm text /*@end*//*@player player text*/  to swap a value (the source stays valid JS for Node).
 
   site/index.html            player edition, full HTML document; Cloudflare deploys only site/ (wrangler.jsonc)
   dm/index.html              DM edition, full HTML document; open it locally
@@ -16,14 +16,14 @@ from pathlib import Path
 
 root = Path(__file__).parent
 src = root / "src"
-MARK = re.compile(r"(?:/\*|<!--)@dm(?:\*/|-->)(.*?)"
-                  r"(?:(?:/\*|<!--)@else(?:\*/|-->)(.*?))?"
-                  r"(?:/\*|<!--)@end(?:\*/|-->)", re.S)
+MARK = re.compile(r"(?:/\*|<!--)@dm(?:\*/|-->)(.*?)(?:/\*|<!--)@end(?:\*/|-->)", re.S)
+PLAYER = re.compile(r"/\*@player (.*?)\*/", re.S)
 # words that must never reach the player edition
-LEAKS = ("amber", "lure", "sinclair", "impact", "@dm", "@else", "@end")
+LEAKS = ("amber", "lure", "sinclair", "impact", "@dm", "@player", "@end")
 
 def edition(text, dm):
-    return MARK.sub(lambda m: m.group(1) if dm else (m.group(2) or ""), text)
+    text = MARK.sub(lambda m: m.group(1) if dm else "", text)
+    return PLAYER.sub(lambda m: "" if dm else m.group(1), text)
 
 def fragment(dm):
     head, body = (edition((src/f).read_text(), dm) for f in ("head.html", "body.html"))

@@ -8,7 +8,7 @@ const MOONS = [
   {key:'blue',   name:'Blue',   month:'Bluemoon',   school:'Transmutation', color:[86,148,240], inc:18, sgn:-1, present:true},
   {key:'green',  name:'Green',  month:'Greenmoon',  school:'Conjuration',   color:[92,196,112], inc:40, sgn: 1, present:true},
   {key:'gold',   name:'Gold',   month:'Goldmoon',   school:'Abjuration',    color:[243,200,80], inc:75, sgn:-1, present:true},
-  {key:'fifth',  name:/*@dm*/'Amber'/*@else*/'Fifth'/*@end*/,  month:'Fifthmoon',  school:'(lost)',        color:[255,150,50], inc:30, sgn: 1, present:false},
+  {key:'fifth',  name:/*@dm*/'Amber'/*@end*//*@player 'Fifth'*/,  month:'Fifthmoon',  school:'(lost)',        color:[255,150,50], inc:30, sgn: 1, present:false},
   {key:'red',    name:'Red',    month:'Redmoon',    school:'Evocation',     color:[236,78,64],  inc:52.994, sgn: 1, present:true},
   {key:'silver', name:'Silver', month:'Silvermoon', school:'Enchantment',   color:[202,206,216],inc:55, sgn: 1, present:true},
   {key:'eighth', name:'Bronze', month:'Eighthmoon', school:'(shattered)',   color:[184,135,74], inc:47, sgn:-1, present:false},

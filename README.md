@@ -6,7 +6,8 @@ The full design record (every model decision and why) is the Claude doc "Moons o
 ## Player and DM editions
 The players do not yet know about the Amber Moon or its 9179 pass, so the build makes two editions.
 Source between `@dm` markers is DM only: `/*@dm*/ … /*@end*/` in JS and CSS, `<!--@dm--> … <!--@end-->` in HTML,
-and `/*@dm*/ dm text /*@else*/ player text /*@end*/` to swap a value (the lost fifth moon is "Fifth" for players).
+and `/*@dm*/ dm text /*@end*//*@player player text*/` to swap a value (the lost fifth moon is "Fifth" for players).
+Both forms leave the source valid JavaScript, so `node tools/*.js` can still load `src/core.js`.
 The player edition has that code removed, not hidden; `build.py` refuses to write it if an Amber word is left.
 
 - Players: https://moons.dragonlampart.com (`site/index.html`, deployed by Cloudflare).
