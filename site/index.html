@@ -106,7 +106,7 @@ select{font-family:var(--font-body);font-size:13px;background:#12131f;color:var(
   <div class="overlay">
     <div class="plaque">
       <div class="kicker" id="kicker">The sky over Ganthia</div>
-      <h1 id="dateTitle">23rd of Greenmoon</h1>
+      <h1 id="dateTitle">21st of Greenmoon</h1>
       <div class="sub" id="dateSub">12:00 AM · 40°N · facing S</div>
     </div>
 
@@ -136,7 +136,7 @@ select{font-family:var(--font-body);font-size:13px;background:#12131f;color:var(
       <div class="group">
         <label class="slider"><span class="lbl">Year</span><input id="year" type="number" step="1" value="9179" inputmode="numeric" aria-label="Year (CR)"></label>
         <label class="slider"><span class="lbl">Month</span><input id="month" type="range" min="1" max="10" step="1" value="3"><output id="monthOut" style="min-width:84px">Greenmoon</output></label>
-        <label class="slider"><span class="lbl">Day</span><input id="day" type="range" min="1" max="40" step="1" value="23"><output id="dayOut" style="min-width:36px">23rd</output></label>
+        <label class="slider"><span class="lbl">Day</span><input id="day" type="range" min="1" max="40" step="1" value="21"><output id="dayOut" style="min-width:36px">21st</output></label>
         <label class="slider"><span class="lbl">Hour</span><input id="hour" type="range" min="0" max="24" step="0.25" value="0"><output id="hourOut">0:00</output></label>
         <label class="slider not-orrery"><span class="lbl">Lat</span><input id="lat" type="range" min="-70" max="70" step="1" value="40"><output id="latOut">40°N</output></label>
       </div>
@@ -182,12 +182,12 @@ const YEAR = 400, EPS = 23.4*DEG;
 const A_KM = 2.30e6, PERI_KM = 1.78e5, ECC = 1 - PERI_KM/A_KM, MOON_R = 806; // 1/10 the volume of Earth's Moon (1737 km × 0.1^(1/3))
 const R_PLANET = 6371, R_SUN = 696000, D_SUN = 1.5e8;
 const MOONS = [
-  {key:'black',  name:'Black',  month:'Blackmoon',  school:'Necromancy',    color:[52,47,62],   rim:[160,140,205], inc:49.714, sgn: 1, present:true},
+  {key:'black',  name:'Black',  month:'Blackmoon',  school:'Necromancy',    color:[52,47,62],   rim:[160,140,205], inc:41.8965, sgn: 1, present:true},
   {key:'blue',   name:'Blue',   month:'Bluemoon',   school:'Transmutation', color:[86,148,240], inc:18, sgn:-1, present:true},
   {key:'green',  name:'Green',  month:'Greenmoon',  school:'Conjuration',   color:[92,196,112], inc:40, sgn: 1, present:true},
   {key:'gold',   name:'Gold',   month:'Goldmoon',   school:'Abjuration',    color:[243,200,80], inc:75, sgn:-1, present:true},
   {key:'fifth',  name:'Fifth',  month:'Fifthmoon',  school:'(lost)',        color:[255,150,50], inc:30, sgn: 1, present:false},
-  {key:'red',    name:'Red',    month:'Redmoon',    school:'Evocation',     color:[236,78,64],  inc:52.994, sgn: 1, present:true},
+  {key:'red',    name:'Red',    month:'Redmoon',    school:'Evocation',     color:[236,78,64],  inc:56.1405, sgn:-1, present:true},
   {key:'silver', name:'Silver', month:'Silvermoon', school:'Enchantment',   color:[202,206,216],inc:55, sgn: 1, present:true},
   {key:'eighth', name:'Bronze', month:'Eighthmoon', school:'(shattered)',   color:[184,135,74], inc:47, sgn:-1, present:false},
   {key:'white',  name:'White',  month:'Whitemoon',  school:'Divination',    color:[246,243,234],inc:12, sgn: 1, present:true},
@@ -202,7 +202,11 @@ function makeOrbit(lp, incDeg, sgn){
   const N=[Math.sin(i)*P[1], -Math.sin(i)*P[0], Math.cos(i)];
   return {P, Q:cross(N,P)};
 }
-MOONS.forEach((m,k)=>{ m.tp = 40*k + 22.5; Object.assign(m, makeOrbit(sunLon(m.tp)+Math.PI, m.inc, m.sgn)); });
+// Each month is named for the moon closest through all of it, the 1st to the 40th. The moons share one orbit
+// size, so the closest moon changes halfway between two closest passes: each pass sits mid-month, at the
+// start of the 21st (day 20.0), and the hand-overs fall on the 1st.
+const PASS_DAY = 20;
+MOONS.forEach((m,k)=>{ m.tp = 40*k + PASS_DAY; Object.assign(m, makeOrbit(sunLon(m.tp)+Math.PI, m.inc, m.sgn)); });
 function kepler(M,e){ let E = M + e*Math.sin(M); for(let n=0;n<8;n++){ E -= (E - e*Math.sin(E) - M)/(1 - e*Math.cos(E)); } return E; }
 function orbitPos(o, tp, t, e=ECC, a=A_KM){
   let M = 2*Math.PI*((t-tp)/YEAR); M = Math.atan2(Math.sin(M),Math.cos(M));
@@ -236,7 +240,7 @@ function moonState(m, t){
   return {r, d, u, cosPhi, frac:(1+cosPhi)/2, shadow:shadowFactor(r,S)};
 }
 const UMBRA_LEN = R_PLANET*D_SUN/(R_SUN-R_PLANET);
-if (typeof module!=='undefined') module.exports={PERI_KM,makeOrbit,sunLon,MOONS,moonState,sunVec,eclToEq,frame,eqToLocal,altAz,YEAR,ECC,A_KM,orbitPos,DEG};
+if (typeof module!=='undefined') module.exports={PASS_DAY,PERI_KM,makeOrbit,sunLon,MOONS,moonState,sunVec,eclToEq,frame,eqToLocal,altAz,YEAR,ECC,A_KM,orbitPos,DEG};
 
 // ---- Ganthian sky viewer: Sky, Orrery, Ley lines ----
 (function(){
@@ -266,9 +270,9 @@ function inUnits(km){ return state.units === 'mi' ? km/KM_PER_MI : km; }
 function equatorYaw(lat){ return (lat < 0 ? 0 : 180)*DEG; }
 const state = {
   // opens facing the equator (south, from Dirole), at life size for the screen (set at the first layout; 45° until then)
-  view:'sky', t: 102.0, lat: DIROLE_LAT, yaw: equatorYaw(DIROLE_LAT), pitch: 8*DEG, fov: 45*DEG,
+  view:'sky', t: 40*2 + PASS_DAY, lat: DIROLE_LAT, yaw: equatorYaw(DIROLE_LAT), pitch: 8*DEG, fov: 45*DEG,
   mode: 'year', playing: !reduceMotion, speedX: {night:43, year:speedPos('year', 1)}, reverse: false, units: savedUnits(),   // night by night opens at 1 night/s
-  size: 'true', fixedHour: 0, dayAcc: 102,
+  size: 'true', fixedHour: 0, dayAcc: 40*2 + PASS_DAY,
   orb: {az: -60*DEG, el: 28*DEG, dist: 11},
   mapShift: 0, mapImg: null, mapFocus: null, mapMode: 'globe', followOn: false, follow: null, lastAim: null, year: 9179, orbScale: 'enlarged',
   opt: {labels:true, sun:true, grid:false}
@@ -367,7 +371,9 @@ function computeScene(){
     bodies.push({m, k, s, L, aa: altAz(L)});
   });
   let closest = null;
-  bodies.forEach(b=>{ if((!closest || b.s.d < closest.s.d)) closest = b; });
+  // at midnight on the 1st two moons are the same distance; the moon the month is named for wins the tie
+  const monthMoon = Math.floor((((t % YEAR) + YEAR) % YEAR)/40);
+  bodies.forEach(b=>{ if((!closest || b.s.d < closest.s.d - 1 || (b.s.d < closest.s.d + 1 && b.k === monthMoon))) closest = b; });
   return {t, F, S, sunL, sunAA, bodies, closest};
 }
 
@@ -663,7 +669,7 @@ function drawOrrery(sc){
 }
 
 // =================== LEY-LINE MAP ===================
-// Ley line: the track of points directly under a moon during its five closest days (21st–25th of its month).
+// Ley line: the track of points directly under a moon during its five closest days (noon on the 18th to noon on the 23rd of its month).
 // Longitude 0 is Dirole's meridian.
 function subPoint(eqv, t){
   const th = lst(t), f0 = eqv[0]*Math.cos(th) + eqv[1]*Math.sin(th), f1 = -eqv[0]*Math.sin(th) + eqv[1]*Math.cos(th);
@@ -771,7 +777,7 @@ function drawMap(sc){
   ctx.textAlign='right'; ctx.textBaseline='middle';
   for(let la=-60; la<=60; la+=30){ const a=m2s(la,0); if(x > 40) ctx.fillText(la===0?'0°':`${Math.abs(la)}°${la>0?'N':'S'}`, x-5, a.y); }
   ctx.textAlign='left'; ctx.textBaseline='top'; ctx.fillStyle='rgba(162,156,176,0.75)';
-  ctx.fillText(state.mapFocus ? `Showing the ${state.mapFocus[0].toUpperCase()+state.mapFocus.slice(1)} ley line · click it in the list again to show all` : 'Ley lines: ground path under each moon, 21st–25th of its month · dot = under it at closest · rings = under each moon now · click a moon in the list to isolate its line', x, y+h+18);
+  ctx.fillText(state.mapFocus ? `Showing the ${state.mapFocus[0].toUpperCase()+state.mapFocus.slice(1)} ley line · click it in the list again to show all` : 'Ley lines: ground path under each moon, 18th–23rd of its month · dot = under it at closest · rings = under each moon now · click a moon in the list to isolate its line', x, y+h+18);
 }
 
 // =================== GLOBE (ley lines on a rotatable planet) ===================
@@ -1075,11 +1081,11 @@ document.querySelectorAll('[data-units]').forEach(x=>x.setAttribute('aria-presse
 function orbMinDist(){ return state.orbScale === 'accurate' ? 0.03 : 1.2; }
 document.querySelectorAll('[data-orbscale]').forEach(b=>b.addEventListener('click', ()=>{ state.orbScale = b.dataset.orbscale; document.querySelectorAll('[data-orbscale]').forEach(x=>x.setAttribute('aria-pressed', x===b)); state.orb.dist = Math.max(orbMinDist(), state.orb.dist); requestDraw(); }));
 const jump = $('jump');
-MOONS.forEach((m,k)=>{ if(!m.present) return; const o=document.createElement('option'); o.value=k; o.textContent=`${m.name}: midnight, 23rd of ${m.month}`; jump.append(o); });
+MOONS.forEach((m,k)=>{ if(!m.present) return; const o=document.createElement('option'); o.value=k; o.textContent=`${m.name}: midnight, ${ordinal(PASS_DAY + 1)} of ${m.month}`; jump.append(o); });
 jump.addEventListener('change', ()=>{
   if(jump.value==='') return;
   setPlaying(false);   // land on the moment; at night-by-night speed it would be gone within a second
-  { const k = +jump.value; state.t = 40*k + 22; state.dayAcc = 40*k + 22; state.fixedHour = 0; if(state.view==='map') state.mapFocus = null; aimAt(MOONS[k].key); }
+  { const k = +jump.value; state.t = 40*k + PASS_DAY; state.dayAcc = 40*k + PASS_DAY; state.fixedHour = 0; if(state.view==='map') state.mapFocus = null; aimAt(MOONS[k].key); }
   jump.value=''; lastTextT = -1; requestDraw();
 });
 const rosterBtn = $('rosterToggle');
@@ -1139,12 +1145,16 @@ function layout(){
 // so the narrow 45° view shows the ground on any screen shape
 let firstLayout = true;
 // Life size: the view spans the angle the sky canvas fills in the viewer's eye, so a moon looks as big as
-// it would outdoors. Browsers do not report physical size or viewing distance, so both are typical values:
-// phone 0.18 mm per CSS px at 30 cm, tablet 0.22 mm at 40 cm, laptop or desktop 0.22 mm at 55 cm.
+// it would outdoors. Browsers do not report physical size or viewing distance, so both are assumed.
+// A computer is taken to be a 15-inch MacBook Pro: its screen is 331.7 mm wide (15.4 in, 16:10) at any
+// resolution setting, so the canvas's width is its share of screen.width, seen from 51.7 cm, the mean
+// natural laptop viewing distance (Brascamp 2021, Journal of Vision 21(8):19, 144 people).
+// A phone is 0.18 mm per CSS px at 30 cm, a tablet 0.22 mm at 40 cm.
+const LAPTOP_SCREEN_MM = 331.7, LAPTOP_EYE_MM = 517;
 function lifeSizeFov(){
   const coarse = window.matchMedia && matchMedia('(pointer: coarse)').matches, small = Math.min(screen.width, screen.height) < 600;
-  const mmPerPx = coarse && small ? 0.18 : 0.22, eyeMm = coarse ? (small ? 300 : 400) : 550;
-  const deg = 2*Math.atan((W*mmPerPx/2)/eyeMm)/DEG;
+  const widthMm = coarse ? W*(small ? 0.18 : 0.22) : W/screen.width*LAPTOP_SCREEN_MM, eyeMm = coarse ? (small ? 300 : 400) : LAPTOP_EYE_MM;
+  const deg = 2*Math.atan((widthMm/2)/eyeMm)/DEG;
   return Math.max(6, Math.min(160, Math.round(deg)))*DEG;
 }
 // the View slider follows the field of view however it changes (slider, scroll, pinch, Life size)

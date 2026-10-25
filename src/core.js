@@ -4,12 +4,12 @@ const YEAR = 400, EPS = 23.4*DEG;
 const A_KM = 2.30e6, PERI_KM = 1.78e5, ECC = 1 - PERI_KM/A_KM, MOON_R = 806; // 1/10 the volume of Earth's Moon (1737 km × 0.1^(1/3))
 const R_PLANET = 6371, R_SUN = 696000, D_SUN = 1.5e8;
 const MOONS = [
-  {key:'black',  name:'Black',  month:'Blackmoon',  school:'Necromancy',    color:[52,47,62],   rim:[160,140,205], inc:49.714, sgn: 1, present:true},
+  {key:'black',  name:'Black',  month:'Blackmoon',  school:'Necromancy',    color:[52,47,62],   rim:[160,140,205], inc:41.8965, sgn: 1, present:true},
   {key:'blue',   name:'Blue',   month:'Bluemoon',   school:'Transmutation', color:[86,148,240], inc:18, sgn:-1, present:true},
   {key:'green',  name:'Green',  month:'Greenmoon',  school:'Conjuration',   color:[92,196,112], inc:40, sgn: 1, present:true},
   {key:'gold',   name:'Gold',   month:'Goldmoon',   school:'Abjuration',    color:[243,200,80], inc:75, sgn:-1, present:true},
   {key:'fifth',  name:/*@dm*/'Amber'/*@end*//*@player 'Fifth'*/,  month:'Fifthmoon',  school:'(lost)',        color:[255,150,50], inc:30, sgn: 1, present:false},
-  {key:'red',    name:'Red',    month:'Redmoon',    school:'Evocation',     color:[236,78,64],  inc:52.994, sgn: 1, present:true},
+  {key:'red',    name:'Red',    month:'Redmoon',    school:'Evocation',     color:[236,78,64],  inc:56.1405, sgn:-1, present:true},
   {key:'silver', name:'Silver', month:'Silvermoon', school:'Enchantment',   color:[202,206,216],inc:55, sgn: 1, present:true},
   {key:'eighth', name:'Bronze', month:'Eighthmoon', school:'(shattered)',   color:[184,135,74], inc:47, sgn:-1, present:false},
   {key:'white',  name:'White',  month:'Whitemoon',  school:'Divination',    color:[246,243,234],inc:12, sgn: 1, present:true},
@@ -24,7 +24,11 @@ function makeOrbit(lp, incDeg, sgn){
   const N=[Math.sin(i)*P[1], -Math.sin(i)*P[0], Math.cos(i)];
   return {P, Q:cross(N,P)};
 }
-MOONS.forEach((m,k)=>{ m.tp = 40*k + 22.5; Object.assign(m, makeOrbit(sunLon(m.tp)+Math.PI, m.inc, m.sgn)); });
+// Each month is named for the moon closest through all of it, the 1st to the 40th. The moons share one orbit
+// size, so the closest moon changes halfway between two closest passes: each pass sits mid-month, at the
+// start of the 21st (day 20.0), and the hand-overs fall on the 1st.
+const PASS_DAY = 20;
+MOONS.forEach((m,k)=>{ m.tp = 40*k + PASS_DAY; Object.assign(m, makeOrbit(sunLon(m.tp)+Math.PI, m.inc, m.sgn)); });
 function kepler(M,e){ let E = M + e*Math.sin(M); for(let n=0;n<8;n++){ E -= (E - e*Math.sin(E) - M)/(1 - e*Math.cos(E)); } return E; }
 function orbitPos(o, tp, t, e=ECC, a=A_KM){
   let M = 2*Math.PI*((t-tp)/YEAR); M = Math.atan2(Math.sin(M),Math.cos(M));
@@ -58,4 +62,4 @@ function moonState(m, t){
   return {r, d, u, cosPhi, frac:(1+cosPhi)/2, shadow:shadowFactor(r,S)};
 }
 const UMBRA_LEN = R_PLANET*D_SUN/(R_SUN-R_PLANET);
-if (typeof module!=='undefined') module.exports={PERI_KM,makeOrbit,sunLon,MOONS,moonState,sunVec,eclToEq,frame,eqToLocal,altAz,YEAR,ECC,A_KM,orbitPos,DEG};
+if (typeof module!=='undefined') module.exports={PASS_DAY,PERI_KM,makeOrbit,sunLon,MOONS,moonState,sunVec,eclToEq,frame,eqToLocal,altAz,YEAR,ECC,A_KM,orbitPos,DEG};

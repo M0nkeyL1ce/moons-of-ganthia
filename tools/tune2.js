@@ -1,7 +1,7 @@
 const C=require('../src/core.js');
 const DEG=Math.PI/180, A=C.A_KM, LAT=40*DEG, cL=Math.cos(LAT), sL=Math.sin(LAT);
 function track(k, rp, inc, sgn, step){
-  const e=1-rp/A, tp=40*k+22.5, lp=(270+0.9*tp)*DEG+Math.PI, P=[Math.cos(lp),Math.sin(lp),0], i=inc*DEG*sgn;
+  const e=1-rp/A, tp=40*k+C.PASS_DAY, lp=(270+0.9*tp)*DEG+Math.PI, P=[Math.cos(lp),Math.sin(lp),0], i=inc*DEG*sgn;
   const N=[Math.sin(i)*P[1],-Math.sin(i)*P[0],Math.cos(i)];
   const Q=[N[1]*P[2]-N[2]*P[1],N[2]*P[0]-N[0]*P[2],N[0]*P[1]-N[1]*P[0]], o={P,Q};
   let best={d:9};

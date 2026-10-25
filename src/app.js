@@ -26,9 +26,9 @@ function inUnits(km){ return state.units === 'mi' ? km/KM_PER_MI : km; }
 function equatorYaw(lat){ return (lat < 0 ? 0 : 180)*DEG; }
 const state = {
   // opens facing the equator (south, from Dirole), at life size for the screen (set at the first layout; 45° until then)
-  view:'sky', t: 102.0, lat: DIROLE_LAT, yaw: equatorYaw(DIROLE_LAT), pitch: 8*DEG, fov: 45*DEG,
+  view:'sky', t: 40*2 + PASS_DAY, lat: DIROLE_LAT, yaw: equatorYaw(DIROLE_LAT), pitch: 8*DEG, fov: 45*DEG,
   mode: 'year', playing: !reduceMotion, speedX: {night:43, year:speedPos('year', 1)}, reverse: false, units: savedUnits(),   // night by night opens at 1 night/s
-  size: 'true', fixedHour: 0, dayAcc: 102,
+  size: 'true', fixedHour: 0, dayAcc: 40*2 + PASS_DAY,
   orb: {az: -60*DEG, el: 28*DEG, dist: 11},
   mapShift: 0, mapImg: null, mapFocus: null, mapMode: 'globe', followOn: false, follow: null, lastAim: null, /*@dm*/lure: 0, /*@end*/year: 9179, orbScale: 'enlarged',
   opt: {labels:true, sun:true, grid:false/*@dm*/, amber:false/*@end*/}
@@ -178,7 +178,9 @@ function computeScene(){
   });
 /*@dm*/  { const s = amberState(t), L = eqToLocal(eclToEq(s.u), F); bodies.push({m:AMBER, k:4, s, L, aa:altAz(L), amber:true, hidden:!state.opt.amber || s.impact}); }
 /*@end*/  let closest = null;
-  bodies.forEach(b=>{ if(/*@dm*/!b.amber && /*@end*/(!closest || b.s.d < closest.s.d)) closest = b; });
+  // at midnight on the 1st two moons are the same distance; the moon the month is named for wins the tie
+  const monthMoon = Math.floor((((t % YEAR) + YEAR) % YEAR)/40);
+  bodies.forEach(b=>{ if(/*@dm*/!b.amber && /*@end*/(!closest || b.s.d < closest.s.d - 1 || (b.s.d < closest.s.d + 1 && b.k === monthMoon))) closest = b; });
 /*@dm*/  const ab = bodies.find(b=>b.amber);
 /*@end*/  return {t, F, S, sunL, sunAA, bodies, closest/*@dm*/, amberImpact: state.opt.amber && ab.s.impact ? ab.s : null/*@end*/};
 }
@@ -519,7 +521,7 @@ function drawOrrery(sc){
 }
 
 // =================== LEY-LINE MAP ===================
-// Ley line: the track of points directly under a moon during its five closest days (21st–25th of its month).
+// Ley line: the track of points directly under a moon during its five closest days (noon on the 18th to noon on the 23rd of its month).
 // Longitude 0 is Dirole's meridian.
 function subPoint(eqv, t){
   const th = lst(t), f0 = eqv[0]*Math.cos(th) + eqv[1]*Math.sin(th), f1 = -eqv[0]*Math.sin(th) + eqv[1]*Math.cos(th);
@@ -628,7 +630,7 @@ function drawMap(sc){
   ctx.textAlign='right'; ctx.textBaseline='middle';
   for(let la=-60; la<=60; la+=30){ const a=m2s(la,0); if(x > 40) ctx.fillText(la===0?'0°':`${Math.abs(la)}°${la>0?'N':'S'}`, x-5, a.y); }
   ctx.textAlign='left'; ctx.textBaseline='top'; ctx.fillStyle='rgba(162,156,176,0.75)';
-  ctx.fillText(state.mapFocus ? `Showing the ${state.mapFocus[0].toUpperCase()+state.mapFocus.slice(1)} ley line · click it in the list again to show all` : 'Ley lines: ground path under each moon, 21st–25th of its month · dot = under it at closest · rings = under each moon now · click a moon in the list to isolate its line', x, y+h+18);
+  ctx.fillText(state.mapFocus ? `Showing the ${state.mapFocus[0].toUpperCase()+state.mapFocus.slice(1)} ley line · click it in the list again to show all` : 'Ley lines: ground path under each moon, 18th–23rd of its month · dot = under it at closest · rings = under each moon now · click a moon in the list to isolate its line', x, y+h+18);
 }
 
 // =================== GLOBE (ley lines on a rotatable planet) ===================
@@ -953,13 +955,13 @@ document.querySelectorAll('[data-units]').forEach(x=>x.setAttribute('aria-presse
 function orbMinDist(){ return state.orbScale === 'accurate' ? 0.03 : 1.2; }
 document.querySelectorAll('[data-orbscale]').forEach(b=>b.addEventListener('click', ()=>{ state.orbScale = b.dataset.orbscale; document.querySelectorAll('[data-orbscale]').forEach(x=>x.setAttribute('aria-pressed', x===b)); state.orb.dist = Math.max(orbMinDist(), state.orb.dist); requestDraw(); }));
 const jump = $('jump');
-MOONS.forEach((m,k)=>{ if(!m.present) return; const o=document.createElement('option'); o.value=k; o.textContent=`${m.name}: midnight, 23rd of ${m.month}`; jump.append(o); });
+MOONS.forEach((m,k)=>{ if(!m.present) return; const o=document.createElement('option'); o.value=k; o.textContent=`${m.name}: midnight, ${ordinal(PASS_DAY + 1)} of ${m.month}`; jump.append(o); });
 /*@dm*/{ const o=document.createElement('option'); o.value='amber'; o.textContent='Amber: 2 PM, 40th of Violetmoon (overhead Dirole about 4 PM)'; jump.append(o); }
 /*@end*/jump.addEventListener('change', ()=>{
   if(jump.value==='') return;
   setPlaying(false);   // land on the moment; at night-by-night speed it would be gone within a second
   /*@dm*/if(jump.value==='amber'){ state.opt.amber = true; $('optAmber').checked = true; syncLure(); state.year = 9179; state.t = 399.5833; state.dayAcc = 399; state.fixedHour = 14; aimAt('amber'); }
-  else /*@end*/{ const k = +jump.value; state.t = 40*k + 22; state.dayAcc = 40*k + 22; state.fixedHour = 0; if(state.view==='map') state.mapFocus = null; aimAt(MOONS[k].key); }
+  else /*@end*/{ const k = +jump.value; state.t = 40*k + PASS_DAY; state.dayAcc = 40*k + PASS_DAY; state.fixedHour = 0; if(state.view==='map') state.mapFocus = null; aimAt(MOONS[k].key); }
   jump.value=''; lastTextT = -1; requestDraw();
 });
 const rosterBtn = $('rosterToggle');
@@ -1019,12 +1021,16 @@ function layout(){
 // so the narrow 45° view shows the ground on any screen shape
 let firstLayout = true;
 // Life size: the view spans the angle the sky canvas fills in the viewer's eye, so a moon looks as big as
-// it would outdoors. Browsers do not report physical size or viewing distance, so both are typical values:
-// phone 0.18 mm per CSS px at 30 cm, tablet 0.22 mm at 40 cm, laptop or desktop 0.22 mm at 55 cm.
+// it would outdoors. Browsers do not report physical size or viewing distance, so both are assumed.
+// A computer is taken to be a 15-inch MacBook Pro: its screen is 331.7 mm wide (15.4 in, 16:10) at any
+// resolution setting, so the canvas's width is its share of screen.width, seen from 51.7 cm, the mean
+// natural laptop viewing distance (Brascamp 2021, Journal of Vision 21(8):19, 144 people).
+// A phone is 0.18 mm per CSS px at 30 cm, a tablet 0.22 mm at 40 cm.
+const LAPTOP_SCREEN_MM = 331.7, LAPTOP_EYE_MM = 517;
 function lifeSizeFov(){
   const coarse = window.matchMedia && matchMedia('(pointer: coarse)').matches, small = Math.min(screen.width, screen.height) < 600;
-  const mmPerPx = coarse && small ? 0.18 : 0.22, eyeMm = coarse ? (small ? 300 : 400) : 550;
-  const deg = 2*Math.atan((W*mmPerPx/2)/eyeMm)/DEG;
+  const widthMm = coarse ? W*(small ? 0.18 : 0.22) : W/screen.width*LAPTOP_SCREEN_MM, eyeMm = coarse ? (small ? 300 : 400) : LAPTOP_EYE_MM;
+  const deg = 2*Math.atan((widthMm/2)/eyeMm)/DEG;
   return Math.max(6, Math.min(160, Math.round(deg)))*DEG;
 }
 // the View slider follows the field of view however it changes (slider, scroll, pinch, Life size)
